@@ -13,14 +13,28 @@ classdef PipeComponent
         kf {mustBeNumeric} % Form-loss coefficient (provided my manufacturer)
         hm {mustBeNumeric} % Head loss due to form resistance
         hf {mustBeNumeric} % Head loss due to surface resistance
-        dz {mustBeNumeric} % Geodesic height change along pipe traverse [m]
+        h {mustBeNumeric} % Geodesic height change along traverse [m]
+        
+        % Non-zero component properties for this component type (pipe)
+        dz {mustBeNumeric} % Loss due to height change
+        dz_SI {mustBeNumeric} % Loss due to height change in SI units
         J {mustBeNumeric} % Flow dynamics term
+        Lambda {mustBeNumeric} % Combined flow-dependent loss term
+        J_SI {mustBeNumeric} % J term in SI units
+        Lambda_SI {mustBeNumeric} % Lambda term in SI units
+        
+        % Obligate zero component properties for this component type (pipe)
+        mu % Flow-dependent loss term for valves (only relevant for valves)
+        mu_SI % Flow-dependent valve loss term in SI units
+        dp % Pressure difference across component (only relevant for pumps)
+        dp_SI % Pressure difference across component in SI units 
+        
         
         
     end
     
     methods
-        function obj = PipeComponent(Length,rho,Area,Diameter,g,eta,Reynolds,kf,dz)
+        function obj = PipeComponent(Length,rho,Area,Diameter,g,eta,Reynolds,kf,h)
             %PipeComponent Constructs an instance of the pipe class
             
             if nargin > 0
@@ -33,13 +47,28 @@ classdef PipeComponent
             obj.eta = eta;
             obj.Reynolds = Reynolds;
             obj.kf = kf;
-            obj.dz = dz;
+            obj.h = h;
             
             % Attributes calculated via fixed attributes
             obj.f = obj.TurbFF();
             obj.hf = obj.DarcyWeisbach(); 
             obj.hm = obj.SwameeForm();
-            obj.J = obj.FlowDyn();
+            
+            obj.Lambda_SI = obj.FlowLoss();
+            obj.Lambda = obj.Lambda_SI/(10^5*3600);
+            
+            obj.J_SI = obj.FlowDyn();
+            obj.J = obj.J_SI/(10^5*3600);
+            
+            obj.dz_SI = obj.HeightLoss();
+            obj.dz = obj.dz_SI/(10^5);
+            
+            % Irrelevant component properties
+            obj.mu = @(OD) 0;
+            obj.mu_SI = @(OD) 0;
+            obj.dp = @(w) 0;
+            obj.dp_SI = @(w) 0;
+            
             end
         end
         
@@ -65,21 +94,14 @@ classdef PipeComponent
             J = obj.Length*obj.rho/obj.Area;
         end
         
-        function dQ = calcdQ(obj,q,dP)
-            %CalcdQSI Returns the change in flow with respect to time in SI
-            %units
-            lambda = ((obj.hf+obj.hm)*obj.rho)/(10e5*3600);
-            zeta = (obj.dz*obj.g*obj.rho)/(10e5);
-            J = obj.J/(10e5*3600);
-            dQ = (dP-(lambda*abs(q)*q)-zeta)/(J);
+        function Lambda = FlowLoss(obj)
+            %FlowLoss Calculates the flow-dependent loss term Lambda
+            Lambda = (obj.hf+obj.hm)*obj.rho;
         end
         
-        function dQSI = calcdQSI(obj,q,dP)
-            %CalcdQSI Returns the change in flow with respect to time in SI
-            %units
-            lambda = (obj.hf+obj.hm)*obj.rho;
-            zeta = obj.dz*obj.g*obj.rho;
-            dQSI = (dP-(lambda*abs(q)*q)-zeta)/obj.J;
+        function dz = HeightLoss(obj)
+            %HeightLoss Calculates loss according to height gradient
+            dz = obj.h*obj.g*obj.rho;
         end
     end
 end

@@ -1,0 +1,6 @@
+# Matlab Files To Ignore #
+##################
+
+*.slxc
+slprj/
+*.asv
