@@ -6,6 +6,7 @@ classdef PumpComponent
              
         a2 {mustBeNumeric} % Pump flow coefficient
         a0 {mustBeNumeric} % Pump velocity coefficient
+        type % Component type
                                
         % Non-zero component properties for this component type (pump)
         dp  % Pressure difference across component (only relevant for pumps)
@@ -28,6 +29,7 @@ classdef PumpComponent
             if nargin > 0
             obj.a2 = a2;
             obj.a0 = a0;
+            obj.type = 'Pump';
             
             % Relevant component parameters
             obj.dp_SI = PumpModel(obj);

@@ -14,6 +14,7 @@ classdef PipeComponent
         hm {mustBeNumeric} % Head loss due to form resistance
         hf {mustBeNumeric} % Head loss due to surface resistance
         h {mustBeNumeric} % Geodesic height change along traverse [m]
+        type % Component type
         
         % Non-zero component properties for this component type (pipe)
         dz {mustBeNumeric} % Loss due to height change
@@ -48,6 +49,7 @@ classdef PipeComponent
             obj.Reynolds = Reynolds;
             obj.kf = kf;
             obj.h = h;
+            obj.type = 'Pipe';
             
             % Attributes calculated via fixed attributes
             obj.f = obj.TurbFF();
