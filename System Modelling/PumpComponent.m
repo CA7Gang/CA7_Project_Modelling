@@ -30,8 +30,8 @@ classdef PumpComponent
             obj.a0 = a0;
             
             % Relevant component parameters
-            obj.dp = PumpModel(obj);
-            obj.dp_SI = @(w) obj.dp(w)/(10^5*3600); % Inherit the function for dp
+            obj.dp_SI = PumpModel(obj);
+            obj.dp = @(w) obj.dp_SI(w)/(10^5*3600); % Inherit the function for dp
             
             % Irrelevant component parameters
             obj.dz = 0;

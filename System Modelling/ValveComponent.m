@@ -31,8 +31,8 @@ classdef ValveComponent
             obj.params = params;
             
             % Relevant component parameters
-            obj.mu = ValveTypeSelector(obj);
-            obj.mu_SI = @(OD) obj.mu(OD)/(10^5*3600); % Inherit whichever function was selected for mu
+            obj.mu_SI = ValveTypeSelector(obj);
+            obj.mu = @(OD) obj.mu_SI(OD)/(10^5*3600); % Inherit whichever function was selected for mu
             
             % Irrelevant component parameters
             obj.dz = 0;
