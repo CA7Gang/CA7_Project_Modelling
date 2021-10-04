@@ -60,7 +60,7 @@ classdef HydraulicNetworkSimulation
             
             [obj.q_C, obj.q_T, obj.d_p, obj.d_c, obj.d_t] = ParseGraphInfo(obj);
             [obj.lambda_C, obj.lambda_T] = ComputePressureDrops(obj);
-            q_C = KCL(obj);
+            obj.q_C = KVL(obj);
             
             
             
@@ -97,7 +97,7 @@ classdef HydraulicNetworkSimulation
                 part_consumers = inv(H_bar_T)*M_bar_c*d_c;
                 part_tank = inv(H_bar_T)*M_bar_t*d_t;
                 
-                % Combine the terms
+                % Combine the terms - this is basically just KCL
                 q_T = part_chords + part_producers + part_consumers + part_tank;      
             end
         
@@ -106,10 +106,11 @@ classdef HydraulicNetworkSimulation
                 lambdaT = obj.r_T.*abs(obj.q_T).*obj.q_T;
             end
             
-            function q_C = KCL(obj)
-                
-                eqn = obj.lambda_C-obj.Graph.H_bar_C'*inv(obj.Graph.H_bar_T)'*obj.lambda_T == 0;
-                q_C = solve(eqn,obj.q_C);
+            function q_C = KVL(obj)
+               
+                eqn = obj.lambda_C-obj.Graph.H_bar_C'*inv(obj.Graph.H_bar_T)'*obj.lambda_T == 0; % KVL equation for the network
+                eqn = subs(eqn,[obj.d(1) obj.d(2) obj.d(3) obj.d(4) obj.d(5) obj.d(6)],[2 -1 0 0 -2 1]); % Just example values for now. Will need som modification.
+                q_C = vpasolve(eqn,obj.q_C); % Solve with vpasolve since not polynomial, doesn't have closed-form solution.
             end
     end
 end
