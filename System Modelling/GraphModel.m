@@ -18,9 +18,9 @@ classdef GraphModel
         H_bar_T % Reduced spanning tree incidence matrix
         H_bar_C % Reduced chord incidence matrix
         B % Loop matrix
-        Mc_bar % Consumer matrix
-        Mp_bar % Producer matrix
-        Mt_bar % Tank matrix
+        M_bar_c % Consumer matrix
+        M_bar_p % Producer matrix
+        M_bar_t % Tank matrix
         
     end
     
@@ -53,7 +53,7 @@ classdef GraphModel
                 obj.B = [eye(numC,numC), -obj.H_bar_C'*pinv(obj.H_bar_T')]; % Probably more robust implementation
                 
                 % Make the demand matrices
-                [obj.Mc_bar obj.Mp_bar obj.Mt_bar] = GetDemandMatrices(obj);
+                [obj.M_bar_c obj.M_bar_p obj.M_bar_t] = GetDemandMatrices(obj);
             end     
                        
         end
