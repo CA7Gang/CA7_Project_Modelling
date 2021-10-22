@@ -9,6 +9,7 @@ classdef GraphModel
         vertices % Vertices of the model
         consumers % Open vertices that consume flow
         producers % Open vertices that produce flow
+        tanks % Vertices connected to tanks
        
         
         H % Object incidence matrix
@@ -18,14 +19,16 @@ classdef GraphModel
         H_bar_T % Reduced spanning tree incidence matrix
         H_bar_C % Reduced chord incidence matrix
         B % Loop matrix
-        M_bar_c % Consumer matrix
-        M_bar_p % Producer matrix
-        M_bar_t % Tank matrix
+        F_bar % Non-tank demand matrix
+        G_bar % Tank demand matrix
+        Phi % Flow block matrix in final equation
+        Psi % Pressure block matrix in final equation
+        I % Identity matrix for pressures in final equation
         
     end
     
     methods
-        function obj = GraphModel(H,chords,vref,producers,consumers)
+        function obj = GraphModel(H,chords,vref,producers,consumers,tanks)
             %GraphModel Construct a graph theory model of a hydraulic
             %network
             if nargin > 0
@@ -36,6 +39,7 @@ classdef GraphModel
                 obj.vref = vref;
                 obj.consumers = consumers;
                 obj.producers = producers;
+                obj.tanks = tanks;
                 [obj.edges,obj.vertices] = GetGraphProperties(obj);
                 obj.spanT = GetSpanningTree(obj);
                 
@@ -53,7 +57,10 @@ classdef GraphModel
                 obj.B = [eye(numC,numC), -obj.H_bar_C'*pinv(obj.H_bar_T')]; % Probably more robust implementation
                 
                 % Make the demand matrices
-                [obj.M_bar_c obj.M_bar_p obj.M_bar_t] = GetDemandMatrices(obj);
+                [obj.F_bar,obj.G_bar] = GetDemandMatrices(obj);
+                
+                % Make the final block matrices
+                [obj.Phi, obj.Psi, obj.I] = MakeBlockMatrices(obj);
             end     
                        
         end
@@ -88,23 +95,38 @@ classdef GraphModel
             end
         end
         
-        function [Mc, Mp, Mt] = GetDemandMatrices(obj)
-            Mc = zeros(numel(obj.vertices),numel(obj.consumers)); % Has vertices-ref rows and consumers columns
-            Mp = zeros(numel(obj.vertices),numel(obj.producers)); 
-            Mt = zeros(numel(obj.vertices),numel(obj.vref));
+        function [F, G] = GetDemandMatrices(obj)
+            F = zeros(numel(obj.vertices),numel(obj.producers)+numel(obj.consumers));
+            G = zeros(numel(obj.vertices),numel(obj.tanks));
             
-            for ii = 1:numel(obj.consumers)
-                Mc(obj.consumers(ii),ii) = 1;   
-            end
-            for ii = 1:numel(obj.producers)
-                Mp(obj.producers(ii),ii) = 1; 
-            end
-            Mc(obj.vref,:) = [];
-            Mp(obj.vref,:) = [];
-            Mt(obj.vref,:) = [];
+            pc = sort([obj.producers obj.consumers]);
             
+            for ii = 1:length(pc)
+                F(pc(ii),ii) = 1;
+            end
+            
+            for ii = 1:length(obj.tanks)
+                G(obj.tanks(ii)) = 1;
+            end
+            
+            G(obj.vref,:) = [];
+            F(obj.vref,:) = [];
         end
-        
+          
+        function [Phi,Psi,I] = MakeBlockMatrices(obj)
+            numC = numel(obj.chords);
+            numFlows = numel(obj.consumers)+numel(obj.producers);
+            numTanks = numel(obj.tanks);
+            numNodes = numel(obj.vertices);
+            
+            Phi = [eye(numC,numC),-obj.H_bar_C'*inv(obj.H_bar_T)';
+            zeros(numFlows,numC),obj.F_bar'*inv(obj.H_bar_T)';
+            zeros(numTanks,numC),obj.G_bar'*inv(obj.H_bar_T)'];
+
+            Psi = [zeros(numC,numNodes-1);obj.F_bar';obj.G_bar'];
+            
+            I = [zeros(numC,numTanks); zeros(numFlows,numTanks); eye(numTanks)];
+        end
     end
 end
 

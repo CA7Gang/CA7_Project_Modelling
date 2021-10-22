@@ -2,47 +2,47 @@ classdef PipeComponent
     %PipeComponent An object-oriented implementation of fluid flow in a
     %pipe
     properties
-        Length {mustBeNumeric} % Pipe length [m]
-        rho {mustBeNumeric} % Fluid density [kg/m^3]
-        Area {mustBeNumeric} % Pipe cross-sectional area [m^2]
-        Diameter {mustBeNumeric} % Pipe diameter in [m]
-        g {mustBeNumeric} % Gravitational acceleration [m/s^2]
-        f {mustBeNumeric} % Flow-dependent friction factor (calculated internally)
-        eta {mustBeNumeric} % Pipe roughness height [m]
-        Reynolds {mustBeNumeric} % Flow-dependent Reynolds number of flow through pipe
-        kf {mustBeNumeric} % Form-loss coefficient (provided my manufacturer)
-        hm {mustBeNumeric} % Head loss due to form resistance
-        hf {mustBeNumeric} % Head loss due to surface resistance
-        h {mustBeNumeric} % Geodesic height change along traverse [m]
+        Length  % Pipe length [m]
+        rho  % Fluid density [kg/m^3]
+        Area  % Pipe cross-sectional area [m^2]
+        Diameter  % Pipe diameter in [m]
+        g  % Gravitational acceleration [m/s^2]
+        f  % Flow-dependent friction factor (calculated internally)
+        eta  % Pipe roughness height [m]
+        Reynolds  % Flow-dependent Reynolds number of flow through pipe
+        kf  % Form-loss coefficient (provided my manufacturer)
+        hm  % Head loss due to form resistance
+        hf  % Head loss due to surface resistance
+        h  % Geodesic height change along traverse [m]
         type % Component type
         
         % Non-zero component properties for this component type (pipe)
-        dz {mustBeNumeric} % Loss due to height change
-        dz_SI {mustBeNumeric} % Loss due to height change in SI units
-        J {mustBeNumeric} % Flow dynamics term
-        Lambda {mustBeNumeric} % Combined flow-dependent loss term
-        J_SI {mustBeNumeric} % J term in SI units
-        Lambda_SI {mustBeNumeric} % Lambda term in SI units
+        dz  % Loss due to height change
+        dz_SI  % Loss due to height change in SI units
+        J  % Flow dynamics term
+        Lambda  % Combined flow-dependent loss term
+        J_SI  % J term in SI units
+        Lambda_SI  % Lambda term in SI units
         
         % Obligate zero component properties for this component type (pipe)
         mu % Flow-dependent loss term for valves (only relevant for valves)
         mu_SI % Flow-dependent valve loss term in SI units
-        dp % Pressure difference across component (only relevant for pumps)
-        dp_SI % Pressure difference across component in SI units 
+        alpha % Pressure difference across component (only relevant for pumps)
+        alpha_SI % Pressure difference across component in SI units 
         
         
         
     end
     
     methods
-        function obj = PipeComponent(Length,rho,Area,Diameter,g,eta,Reynolds,kf,h)
+        function obj = PipeComponent(Length,rho,Diameter,g,eta,Reynolds,kf,h)
             %PipeComponent Constructs an instance of the pipe class
             
             if nargin > 0
             % Fixed object attributes
             obj.Length = Length; 
             obj.rho = rho; 
-            obj.Area = Area; 
+            obj.Area = pi*(Diameter/2)^2; 
             obj.Diameter = Diameter;
             obj.g = g;
             obj.eta = eta;
@@ -57,19 +57,19 @@ classdef PipeComponent
             obj.hm = obj.SwameeForm();
             
             obj.Lambda_SI = obj.FlowLoss();
-            obj.Lambda = obj.Lambda_SI/(10^5*3600);
+            obj.Lambda = @(q) obj.Lambda_SI(q)/(10^5*3600^2);
             
             obj.J_SI = obj.FlowDyn();
-            obj.J = obj.J_SI/(10^5*3600);
+            obj.J = obj.J_SI/(10^5*3600^2);
             
             obj.dz_SI = obj.HeightLoss();
             obj.dz = obj.dz_SI/(10^5);
             
             % Irrelevant component properties
-            obj.mu = @(OD) 0;
-            obj.mu_SI = @(OD) 0;
-            obj.dp = @(w) 0;
-            obj.dp_SI = @(w) 0;
+            obj.mu = @(q,OD) 0;
+            obj.mu_SI = @(q,OD) 0;
+            obj.alpha = @(q,w) 0;
+            obj.alpha_SI = @(q,w) 0;
             
             end
         end
@@ -98,7 +98,7 @@ classdef PipeComponent
         
         function Lambda = FlowLoss(obj)
             %FlowLoss Calculates the flow-dependent loss term Lambda
-            Lambda = (obj.hf+obj.hm)*obj.rho;
+            Lambda = @(q) (obj.hf+obj.hm)*obj.rho*abs(q)*q;
         end
         
         function dz = HeightLoss(obj)

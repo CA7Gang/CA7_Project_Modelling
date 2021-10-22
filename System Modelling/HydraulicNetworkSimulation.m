@@ -11,107 +11,115 @@ classdef HydraulicNetworkSimulation
         q % Symbolic variable for flows in edges
         q_C % Symbolic variable for chordal flows
         q_T % Symbolic variable for tree flows
+        q_n % Symbolic variable for final composite state vector
         
         p % Symbolic variable for nodal pressures
         pdot % Symbolic variable for nodal pressure derivative
         
         d % Symbolic variable for nodal demands
-        d_p % Symbolic variable for nodal production
-        d_c % Symbolic variable for nodal consumption
-        d_t % Symbolic variable for tank demand (bilateral)
+        d_f % Symbolic variable for non-zero nodal flows
+        d_t % Symbolic variable for tank demands (bilateral)
         
         r_all % Variable containing expression for hydraulic resistance across all edges
         r_T % Variable containing expression for hydraulic resistance across spanning tree edges
         r_C % Variable containing expression for hydraulic resistance across chordal edges
         
-        lambda_C % Symbolic variable containing chordal pressure drops
-        lambda_T % Symbolic variable containing spanning tree pressure drops
+        w % Symbolic variable representing pump speeds
+        OD % Symbolic variable representing valve opening degrees
+        
+        PumpEdges % Variable containing indices of edges with pumps
+        ValveEdges % Variable containing indices of edges with valves
+        Inertias % Variable containing pipe inertias
+        
+        PF % Symbolic variable containing pressure functions
+        
     end
     
     methods
-        function obj = HydraulicNetworkSimulation(Graph,Components)
+        function obj = HydraulicNetworkSimulation(Graph,Components,PumpEdges,ValveEdges,Inertias)
             %HydraulicNetworkSimulation Constructs the simulation model
             obj.Graph = Graph;
             obj.Components = Components;
+            obj.ValveEdges = ValveEdges;
+            obj.PumpEdges = PumpEdges;
+            obj.Inertias = Inertias;
             
-            for ii = 1:length(obj.Components.Pipes)
-                    obj.r_all(ii,1) = Components.Pipes(ii).Lambda;
-            end
             
             syms q [numel(obj.Graph.edges) 1]
             syms d [numel(obj.Graph.vertices) 1]
             syms pdot [numel(obj.Graph.vertices) 1]
             syms p [numel(obj.Graph.vertices) 1]
-            syms lambda_C
-            syms lambda_T
+            syms w [numel(obj.Graph.producers) 1]
+            syms OD [numel(obj.Graph.consumers) 1]
+            
             
             for ii = 1:length(obj.Graph.chords)
-                obj.r_C(ii,1) = obj.r_all(obj.Graph.chords(ii));
+                obj.r_C{ii,1} = obj.Components{obj.Graph.chords(ii)};
             end
             
              for ii = 1:length(obj.Graph.spanT)
-                obj.r_T(ii,1) = obj.r_all(obj.Graph.spanT(ii));
+                obj.r_T{ii,1} = obj.Components{obj.Graph.spanT(ii)};
             end
             
             obj.q = q;
             obj.d = d;
             obj.pdot = pdot;
-            obj.p = p;           
+            obj.p = p;
+            obj.w = sym(zeros(numel(obj.Graph.edges),1));
             
-            [obj.q_C, obj.q_T, obj.d_p, obj.d_c, obj.d_t] = ParseGraphInfo(obj);
-            [obj.lambda_C, obj.lambda_T] = ComputePressureDrops(obj);
-            obj.q_C = KVL(obj);
+            for ii = 1:length(obj.PumpEdges)
+                obj.w(obj.PumpEdges(ii)) = w(ii);
+            end
+           
+            obj.OD = sym(zeros(numel(obj.Graph.edges),1));
             
+            for ii = 1:length(obj.ValveEdges)
+                obj.OD(obj.ValveEdges(ii)) = OD(ii);
+            end
             
-            
-                
-            
-            
+            [obj.q_C, obj.q_T, obj.d_f, obj.d_t,obj.q_n] = ParseGraphInfo(obj);
+            obj.PF = ComputePressureDrops(obj);
+            obj.q_C = KVL(obj);       
+              
             end
             
             
-            function [q_C,q_T,d_p,d_c,d_t] = ParseGraphInfo(obj)
+            function [q_C,q_T,d_f,d_t,q_n] = ParseGraphInfo(obj)
                 for ii = 1:length(obj.Graph.chords)
                     q_C(ii,1) = obj.q(obj.Graph.chords(ii));
                 end
                 
-                for ii = 1:length(obj.Graph.producers)
-                    d_p(ii,1) = obj.d(obj.Graph.producers(ii));
+                pc = sort([obj.Graph.consumers obj.Graph.producers]);
+                
+                for ii = 1:length(pc)
+                    d_f(ii,1) = obj.d(pc(ii));
+                end
+
+                for ii = 1:length(obj.Graph.tanks)
+                    d_t(ii,1) = obj.d(obj.Graph.tanks(ii));
                 end
                 
-                for ii = 1:length(obj.Graph.consumers)
-                    d_c(ii,1) = obj.d(obj.Graph.consumers(ii));
-                end
+                H_bar_T = obj.Graph.H_bar_T; H_bar_C = obj.Graph.H_bar_C;
+                G_bar = obj.Graph.G_bar; F_bar = obj.Graph.F_bar;
                 
-                for ii = 1:length(obj.Graph.vref)
-                    d_t(ii,1) = obj.d(obj.Graph.vref(ii));
-                end
+                q_T = -inv(H_bar_T)*H_bar_C*q_C + inv(H_bar_T)*F_bar*d_f + H_bar_T*G_bar*d_t;
                 
-                H_bar_C = obj.Graph.H_bar_C; H_bar_T = obj.Graph.H_bar_T;
-                M_bar_c = obj.Graph.M_bar_c; M_bar_p = obj.Graph.M_bar_p;
-                M_bar_t = obj.Graph.M_bar_t;
-                
-                % Make expression for q_T term by term
-                part_chords = -inv(H_bar_T)*H_bar_C*q_C;
-                part_producers = inv(H_bar_T)*M_bar_p*d_p;
-                part_consumers = inv(H_bar_T)*M_bar_c*d_c;
-                part_tank = inv(H_bar_T)*M_bar_t*d_t;
-                
-                % Combine the terms - this is basically just KCL
-                q_T = part_chords + part_producers + part_consumers + part_tank;      
+                q_n = [q_C;d_f;d_t];          
             end
         
-            function [lambdaC, lambdaT] = ComputePressureDrops(obj)
-                lambdaC = obj.r_C.*abs(obj.q_C).*obj.q_C;
-                lambdaT = obj.r_T.*abs(obj.q_T).*obj.q_T;
+            function PF = ComputePressureDrops(obj)
+                for ii = 1:length(obj.r_T)
+                    PF(ii) = obj.r_T{ii}(obj.q_T(ii),obj.w(obj.Graph.spanT(ii)),obj.OD(obj.Graph.spanT(ii)));
+                end
+
             end
             
-            function q_C = KVL(obj)
-               
-                eqn = obj.lambda_C-obj.Graph.H_bar_C'*inv(obj.Graph.H_bar_T)'*obj.lambda_T == 0; % KVL equation for the network
-                eqn = subs(eqn,[obj.d(1) obj.d(2) obj.d(3) obj.d(4) obj.d(5) obj.d(6)],[2 -1 0 0 -2 1]); % Just example values for now. Will need som modification.
-                q_C = vpasolve(eqn,obj.q_C); % Solve with vpasolve since not polynomial, doesn't have closed-form solution.
-            end
+%             function q_C = KVL(obj)
+%                
+%                 eqn = obj.lambda_C-obj.Graph.H_bar_C'*inv(obj.Graph.H_bar_T)'*obj.lambda_T == 0; % KVL equation for the network
+%                 eqn = subs(eqn,[obj.d(1) obj.d(2) obj.d(3) obj.d(4) obj.d(5) obj.d(6)],[2 -1 0 0 -2 1]); % Just example values for now. Will need som modification.
+%                 q_C = vpasolve(eqn,obj.q_C); % Solve with vpasolve since not polynomial, doesn't have closed-form solution.
+%             end
     end
 end
 
