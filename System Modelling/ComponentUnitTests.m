@@ -15,8 +15,8 @@ ValveIndex = [3 9];
 
 PipeLen = [10 20 20 15 10 10 25]'; 
 PipeDiam = 10e-3.*[25 25 20 15 25 20 25]';
-PipeHeights = zeros(7,1)-h0;
-eta = 0.05.*ones(7,1); % Pipe roughness factors
+
+eta = 0.05E-3.*ones(7,1); % Pipe roughness factors
 
 a2 = -[0.0367 0.0367]';
 a0 = [7.335e-5 7.335e-5]';
@@ -25,7 +25,7 @@ Kv = ones(2,1);
 
 
 for ii = 1:length(PipeLen)
-Pipes(ii) =  PipeComponent(PipeLen(ii),rho,PipeDiam(ii),g,eta(ii),Reynolds,kf,PipeHeights(ii));
+Pipes(ii) =  PipeComponent(PipeLen(ii),rho,PipeDiam(ii),g,eta(ii),Reynolds,kf);
 end
 
 for ii = 1:length(a2)
@@ -54,6 +54,7 @@ end
 Inertias = diag(Inertias);
 
 
+
 % H = [1 0 1 0 0 0 0;
 %     -1 1 0 0 0 0 0;
 %     0 0 -1 1 1 0 0;
@@ -72,7 +73,10 @@ H =[1  0  0  0  0  0  0  0  0   0  0;
      0  0  0  0  0  0  0 -1  0   1 -1;
      0  0  0  0  0  0  0  0  0   0  1];
  
-
+NodeHeights = zeros(size(H,1)-1,1)-h0;
+p0 = 0;
+ 
+ 
 fooGraph = GraphModel(H,[2,6],10,[1 10],[4 7],6);
 
 PumpEdges = [1;11];
@@ -80,4 +84,6 @@ ValveEdges = [3;9];
 
 
 
-fooSim = HydraulicNetworkSimulation(fooGraph,Components,PumpEdges,ValveEdges,Inertias);
+fooSim = HydraulicNetworkSimulation(fooGraph,Components,PumpEdges,ValveEdges,Inertias,NodeHeights,p0);
+
+fooPF = fooSim.Model_TimeStep([50 50],[4 2],[1 2 -1 0],-2,p0)

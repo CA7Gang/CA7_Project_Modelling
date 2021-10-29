@@ -35,7 +35,7 @@ classdef PipeComponent
     end
     
     methods
-        function obj = PipeComponent(Length,rho,Diameter,g,eta,Reynolds,kf,h)
+        function obj = PipeComponent(Length,rho,Diameter,g,eta,Reynolds,kf,h,varargin)
             %PipeComponent Constructs an instance of the pipe class
             
             if nargin > 0
@@ -48,7 +48,11 @@ classdef PipeComponent
             obj.eta = eta;
             obj.Reynolds = Reynolds;
             obj.kf = kf;
-            obj.h = h;
+            try
+                obj.h = h;
+            catch
+                obj.h = 0;
+            end
             obj.type = 'Pipe';
             
             % Attributes calculated via fixed attributes

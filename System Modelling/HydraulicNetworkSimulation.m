@@ -12,6 +12,9 @@ classdef HydraulicNetworkSimulation
         q_C % Symbolic variable for chordal flows
         q_T % Symbolic variable for tree flows
         q_n % Symbolic variable for final composite state vector
+        qdot % Symbolic variable for derivate of flows in edges
+        
+        qC_eq % Equation describing KCL
         
         p % Symbolic variable for nodal pressures
         pdot % Symbolic variable for nodal pressure derivative
@@ -31,23 +34,30 @@ classdef HydraulicNetworkSimulation
         ValveEdges % Variable containing indices of edges with valves
         Inertias % Variable containing pipe inertias
         
-        PF % Symbolic variable containing pressure functions
+        Omega_T % Symbolic variable containing pressure functions of spanning tree
+        Omega_C % Symbolic variable containing pressure functions of chords
+        
+        NodeHeights % Geodesic heights of the non-reference nodes
+        p0 % Initial tank pressures
         
     end
     
     methods
-        function obj = HydraulicNetworkSimulation(Graph,Components,PumpEdges,ValveEdges,Inertias)
+        function obj = HydraulicNetworkSimulation(Graph,Components,PumpEdges,ValveEdges,Inertias,NodeHeights,p0)
             %HydraulicNetworkSimulation Constructs the simulation model
             obj.Graph = Graph;
             obj.Components = Components;
             obj.ValveEdges = ValveEdges;
             obj.PumpEdges = PumpEdges;
             obj.Inertias = Inertias;
+            obj.NodeHeights = NodeHeights;
+            obj.p0 = p0;
             
             
             syms q [numel(obj.Graph.edges) 1]
             syms d [numel(obj.Graph.vertices) 1]
             syms pdot [numel(obj.Graph.vertices) 1]
+            syms qdot [numel(obj.Graph.edges) 1]
             syms p [numel(obj.Graph.vertices) 1]
             syms w [numel(obj.Graph.producers) 1]
             syms OD [numel(obj.Graph.consumers) 1]
@@ -64,6 +74,7 @@ classdef HydraulicNetworkSimulation
             obj.q = q;
             obj.d = d;
             obj.pdot = pdot;
+            obj.qdot = qdot;
             obj.p = p;
             obj.w = sym(zeros(numel(obj.Graph.edges),1));
             
@@ -78,8 +89,8 @@ classdef HydraulicNetworkSimulation
             end
             
             [obj.q_C, obj.q_T, obj.d_f, obj.d_t,obj.q_n] = ParseGraphInfo(obj);
-            obj.PF = ComputePressureDrops(obj);
-            obj.q_C = KVL(obj);       
+            [obj.Omega_T, obj.Omega_C] = ComputePressureDrops(obj);    
+            obj.qC_eq = KCL(obj);
               
             end
             
@@ -107,19 +118,78 @@ classdef HydraulicNetworkSimulation
                 q_n = [q_C;d_f;d_t];          
             end
         
-            function PF = ComputePressureDrops(obj)
+            function [Omega_T,Omega_C] = ComputePressureDrops(obj)
                 for ii = 1:length(obj.r_T)
-                    PF(ii) = obj.r_T{ii}(obj.q_T(ii),obj.w(obj.Graph.spanT(ii)),obj.OD(obj.Graph.spanT(ii)));
+                    Omega_T(ii) = obj.r_T{ii}(obj.q_T(ii),obj.w(obj.Graph.spanT(ii)),obj.OD(obj.Graph.spanT(ii)));
+                end  
+                for ii = 1:length(obj.r_C)
+                    Omega_C(ii) = obj.r_C{ii}(obj.q_C(ii),obj.w(obj.Graph.chords(ii)),obj.OD(obj.Graph.chords(ii)));
                 end
-
             end
             
-%             function q_C = KVL(obj)
-%                
-%                 eqn = obj.lambda_C-obj.Graph.H_bar_C'*inv(obj.Graph.H_bar_T)'*obj.lambda_T == 0; % KVL equation for the network
-%                 eqn = subs(eqn,[obj.d(1) obj.d(2) obj.d(3) obj.d(4) obj.d(5) obj.d(6)],[2 -1 0 0 -2 1]); % Just example values for now. Will need som modification.
-%                 q_C = vpasolve(eqn,obj.q_C); % Solve with vpasolve since not polynomial, doesn't have closed-form solution.
-%             end
+            function eqn = KCL(obj)
+                HbarT = obj.Graph.H_bar_T; HbarC = obj.Graph.H_bar_C;
+                eqn = obj.Omega_C'-HbarC'*inv(HbarT)'*obj.Omega_T' == 0;
+            end
+        
+            function [dqdt,pbar,dptdt] = Model_TimeStep(obj,w,OD,df,d_t,pt)
+                for ii = 1:length(obj.PumpEdges)
+                    PumpSubs(ii) = obj.w(obj.PumpEdges(ii));
+                end
+                for ii = 1:length(obj.ValveEdges)
+                ValveSubs(ii) = obj.OD(obj.ValveEdges(ii));
+                end
+                
+                Omega_T = subs(obj.Omega_T,[PumpSubs ValveSubs],[w OD]);
+                
+                for ii = 1:length(obj.d_f)
+                    dfvars(ii) = obj.d_f(ii);
+                end
+                for ii = 1:length(obj.d_t)
+                    dtvars(ii) = obj.d_t(ii);
+                end
+                for ii = 1:length(obj.q_C)
+                    qCvars(ii) = obj.q_C(ii);
+                end
+                
+                KCLeq = subs(obj.qC_eq,[dfvars dtvars],[df d_t]);
+                q_C = vpasolve(KCLeq,[obj.q_C(1);obj.q_C(2)]);
+                
+                names = fieldnames(q_C);
+                for ii = 1:length(names)
+                    qc(ii) = getfield(q_C,names{ii});
+                end
+                
+                Omega_T = subs(Omega_T,[qCvars dfvars dtvars],[qc df d_t])
+                Omega_C = subs(obj.Omega_C, [qCvars],[qc])
+                
+                Omegas = zeros(max(obj.Graph.edges),1);
+                
+                for ii = 1:length(obj.Graph.spanT)
+                    Omegas(obj.Graph.spanT(ii)) = Omega_T(ii);
+                end
+                for ii = 1:length(obj.Graph.chords)
+                    Omegas(obj.Graph.chords(ii)) = Omega_C(ii)
+                end
+
+                
+                pbar = inv(obj.Graph.H_bar_T)'*Omega_T' - obj.NodeHeights;
+                
+%                 for ii = 1:length(obj.Graph.spanT)
+%                     J(ii) = obj.Inertias(obj.Graph.spanT(ii));
+% %                 end
+%                 J = diag(J);
+                
+                P = pinv(obj.Graph.Phi*obj.Inertias*obj.Graph.Phi');
+                
+                qdot = -P*obj.Graph.Phi*Omegas+P*(obj.Graph.Psi*(obj.NodeHeights))+P*(obj.Graph.I*(pt-0))
+                
+                
+            
+             end
+            
+            
+
     end
 end
 
