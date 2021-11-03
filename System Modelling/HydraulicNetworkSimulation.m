@@ -80,6 +80,16 @@ classdef HydraulicNetworkSimulation
                 obj.r_T{ii,1} = obj.Components{obj.Graph.spanT(ii)};
             end
             
+            obj.r_all = cell(numel(obj.Graph.spanT)+numel(obj.Graph.chords),1);
+            
+             for ii = 1:length(obj.r_T)
+                    obj.r_all{(obj.Graph.spanT(ii))} = obj.r_T{ii};
+             end  
+             
+             for ii = 1:length(obj.r_C)
+                    obj.r_all{obj.Graph.chords(ii)} = obj.r_T{ii};
+             end
+            
             % Map the symbolic variables onto the simulation object
             obj.q = q;
             obj.d = d;
@@ -88,7 +98,7 @@ classdef HydraulicNetworkSimulation
             obj.p = p;
             obj.w = sym(zeros(numel(obj.Graph.edges),1));
             obj.OD = sym(zeros(numel(obj.Graph.edges),1));
-            
+                 
             % Get the edges that have pumps on them and map the symbolic
             % pump speeds in
             for ii = 1:length(obj.PumpEdges)
@@ -164,7 +174,7 @@ classdef HydraulicNetworkSimulation
                 eqn = obj.Omega_C'-HbarC'*inv(HbarT)'*obj.Omega_T' == 0;
             end
         
-            function [dqdt,pbar,pt_new] = Model_TimeStep(obj,w,OD,df,d_t,pt_old,ts)
+            function [dqdt,pbar,pt_new] = Model_TimeStep(obj,w,OD,qc,df,d_t,pt_old,ts)
                 
                 % Figure out which edges are pumps and valves so we can
                 % substitute in OD and w
@@ -191,17 +201,6 @@ classdef HydraulicNetworkSimulation
                     qCvars(ii) = obj.q_C(ii);
                 end
                 
-                % Substitute in the nodal demands and find the chord flows
-                % numerically
-                KCLeq = subs(obj.qC_eq,[dfvars dtvars],[df d_t]);
-                q_C = vpasolve(KCLeq,[obj.q_C(1);obj.q_C(2)]);
-                
-                % Extract the values of q_C from the solution
-                names = fieldnames(q_C);
-                for ii = 1:length(names)
-                    qc(ii) = getfield(q_C,names{ii});
-                end
-                
                 % Substitute the actual flows into the pressure equations
                 Omega_T = subs(Omega_T,[qCvars dfvars dtvars],[qc df d_t]);
                 Omega_C = subs(obj.Omega_C, [qCvars],[qc]);
@@ -221,18 +220,18 @@ classdef HydraulicNetworkSimulation
                 pbar = inv(obj.Graph.H_bar_T)'*Omega_T' - obj.NodeHeights*(obj.rho*obj.g)/(10^5);
                 
                 % Get the change in flows
-                ResistancePart = obj.Graph.Phi*Omegas;
+                ResistancePart = -obj.Graph.Phi*Omegas;
                 HeightPart = (obj.Graph.Psi*(obj.NodeHeights))*(obj.rho*obj.g)/(10^5);
                 PressurePart = (obj.Graph.I*(pt_old-0))*1/10^5;
-%                 dqdt = -P*obj.Graph.Phi*Omegas+P*(obj.Graph.Psi*(obj.NodeHeights))+P*(obj.Graph.I*(pt_old-0));
-                dqdt = obj.P*(-ResistancePart+HeightPart+PressurePart); % Note that P is the inverse of Phi J Phi^T
+                
+                dqdt = obj.P*(ResistancePart+HeightPart+PressurePart); % Note that P is the inverse of Phi J Phi^T
                 
 
                 % Find out where the tanks are
-                tankstartindex = numel(obj.Graph.chords)+numel(obj.Graph.consumers)+numel(obj.Graph.producers);
+                tankstartindex = numel(obj.Graph.chords)+numel(obj.Graph.consumers)+numel(obj.Graph.producers)+1;
                 
                 % Get the new tank pressures
-                pt_new = pt_old - 0.000096*dqdt(tankstartindex+1:end)*ts; % Need to introduce code here to get the actual tank constant from the graph model
+                pt_new = pt_old - 0.000096*dqdt(tankstartindex:end)*ts; % Need to introduce code here to get the actual tank constant from the graph model
                 
                
             

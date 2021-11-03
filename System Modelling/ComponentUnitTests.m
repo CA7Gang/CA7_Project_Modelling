@@ -79,7 +79,7 @@ H =[1  0  0  0  0  0  0  0  0   0  0;
  
 % NodeHeights = zeros(size(H,1)-1,1)-h0;
 NodeHeights = [0; 0; 0; 0.9; 0; 3; 0.9; 0; 0]-h0; 
-p0 = 3;
+p0 = 0;
 % p0 = 0;
  
  
@@ -106,45 +106,53 @@ xlim([0 t(end)])
 
 clear flow tankpres df d_t pt w1 w2 OD1 OD2
 w1 = w; w2 = w; OD1 = OD; OD2 = OD;
-df = [0;0;0;0]; pt = 3; d_t = 0;
+qc = [0;0];
+df = [0;0;0;0]; pt = 0; d_t = 0;
+ts = 0.01;
 
 for ii = 1:100
-    [dqdt,pbar,pt_new] = fooSim.Model_TimeStep([w1(ii) w2(ii)],[OD1(ii) OD2(ii)],[df(1) df(2) df(3) df(4)],d_t,pt,1);
-    df(1) = df(1)+dqdt(3); 
-    df(2) = df(2)+dqdt(4); 
-    df(3) = df(3)+dqdt(5); 
-    
-    % Must obey mass conservation
+    [dqdt,pbar,pt_new] = fooSim.Model_TimeStep([w1(ii) w2(ii)],[OD1(ii) OD2(ii)],[qc(1) qc(2)],[df(1) df(2) df(3) df(4)],d_t,pt,ts);
+    qc(1) = df(1)+dqdt(1)*ts;
+    qc(2) = df(2)+dqdt(2)*ts;
+    df(1) = df(1)+dqdt(3)*ts; 
+    df(2) = df(2)+dqdt(4)*ts; 
+    df(3) = df(3)+dqdt(5)*ts; 
+%     
+% %     Must obey mass conservation
 %     conflow = cumsum(dqdt);
-%     df(4) = -conflow(end);
+%     df(4) = df(4)-conflow(end);
 
     df(4) = df(4)+dqdt(6);
     d_t = d_t+dqdt(end);
     pt = pt_new;
-    flow(:,ii) = [dqdt(1:2);df;d_t];
+    flow(:,ii) = [qc;df;d_t];
     pressures(:,ii) = double(pbar);
     tankpres(ii) = pt;
 end
 
-%%
+%
 close all
 
 figure()
 subplot(2,2,1)
 plot(t(1):t(length(flow)),flow(1:2,:))
 legend('Chord 1','Chord 2')
+ylim([-10 10])
 subplot(2,2,2)
 plot(t(1):t(length(flow)),flow(3,:))
 hold on
 plot(t(1):t(length(flow)),flow(6,:))
 hold off
 legend('Pump 1','Pump 2')
+ylim([-10 10])
 subplot(2,2,3)
 plot(t(1):t(length(flow)),flow(4:5,:))
 legend('Consumer 1','Consumer 2')
+ylim([-10 10])
 subplot(2,2,4)
 plot(t(1):t(length(flow)),flow(end,:))
 legend('Tank')
+ylim([-10 10])
 figure()
 plot(t(1):t(length(pressures)),pressures)
 figure()

@@ -52,7 +52,7 @@ classdef PumpComponent
         
         function alpha = PumpModel(obj)
         %PumpModel Constructs the nonlinear model of the pump
-            alpha = @(q,w) obj.a0*w^2+obj.a1*w*q+obj.a2*abs(q)*q;
+            alpha = @(q,w) -(obj.a0*w^2+obj.a1*w*q+obj.a2*abs(q)*q);
         end
     end
 end
