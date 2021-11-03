@@ -64,7 +64,7 @@ classdef PipeComponent
             obj.Lambda = @(q) obj.Lambda_SI(q)/(10^5*3600^2);
             
             obj.J_SI = obj.FlowDyn();
-            obj.J = obj.J_SI/(10^5*3600^2);
+            obj.J = obj.J_SI/(10^5*3600);
             
             obj.dz_SI = obj.HeightLoss();
             obj.dz = obj.dz_SI/(10^5);
