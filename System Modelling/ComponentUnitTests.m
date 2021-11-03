@@ -4,6 +4,9 @@ close all
 g = 9.82; % Gravitational acceleration
 h0 = 0; % Height of the reference node
 rho = 1; % Density of water (kg/L)
+v = 1.012*10^-6; % Kinematic viscosity of water
+q_mean = 1.5/3600; % Mean assumed flow per second (1.5 cubic meters / hr)
+
 Reynolds = 25000; 
 kf = 1.8;
 
@@ -26,7 +29,7 @@ Kv = ones(2,1);
 
 
 for ii = 1:length(PipeLen)
-Pipes(ii) =  PipeComponent(PipeLen(ii),rho,PipeDiam(ii),g,eta(ii),Reynolds,kf);
+Pipes(ii) =  PipeComponent(PipeLen(ii),rho,PipeDiam(ii),g,eta(ii),q_mean,v,kf);
 end
 
 for ii = 1:length(a2)

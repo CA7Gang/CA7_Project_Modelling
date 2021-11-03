@@ -4,6 +4,7 @@ classdef PipeComponent
     properties
         Length  % Pipe length [m]
         rho  % Fluid density [kg/m^3]
+        v % Kinematic viscosity [m^2/s]
         Area  % Pipe cross-sectional area [m^2]
         Diameter  % Pipe diameter in [m]
         g  % Gravitational acceleration [m/s^2]
@@ -35,7 +36,7 @@ classdef PipeComponent
     end
     
     methods
-        function obj = PipeComponent(Length,rho,Diameter,g,eta,Reynolds,kf,h,varargin)
+        function obj = PipeComponent(Length,rho,Diameter,g,eta,q_mean,v,kf,h,varargin)
             %PipeComponent Constructs an instance of the pipe class
             
             if nargin > 0
@@ -46,7 +47,7 @@ classdef PipeComponent
             obj.Diameter = Diameter;
             obj.g = g;
             obj.eta = eta;
-            obj.Reynolds = Reynolds;
+            obj.Reynolds = (4*q_mean)/(pi*v*obj.Diameter);
             obj.kf = kf;
             try
                 obj.h = h;
