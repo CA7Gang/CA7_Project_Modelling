@@ -80,6 +80,7 @@ classdef HydraulicNetworkSimulation
                 obj.r_T{ii,1} = obj.Components{obj.Graph.spanT(ii)};
             end
             
+            % Collect all the resistance functions in one vector
             obj.r_all = cell(numel(obj.Graph.spanT)+numel(obj.Graph.chords),1);
             
              for ii = 1:length(obj.r_T)
@@ -113,9 +114,11 @@ classdef HydraulicNetworkSimulation
                 obj.OD(obj.ValveEdges(ii)) = OD(ii);
             end
             
-            % Collect the 
+            % Collect the graph flows and compute the pressure drops
             [obj.q_C, obj.q_T, obj.d_f, obj.d_t,obj.q_n] = ParseGraphInfo(obj);
-            [obj.Omega_T, obj.Omega_C] = ComputePressureDrops(obj);    
+            [obj.Omega_T, obj.Omega_C] = ComputePressureDrops(obj);  
+            
+            % Solve the static equation to find the chord flow equations
             obj.qC_eq = KCL(obj);
               
             end
@@ -148,7 +151,7 @@ classdef HydraulicNetworkSimulation
                 
                 % Use the identify for spanning tree flows based on
                 % q_C,d_f,d_t
-                q_T = -inv(H_bar_T)*H_bar_C*q_C + inv(H_bar_T)*F_bar*d_f + H_bar_T*G_bar*d_t;
+                q_T = -inv(H_bar_T)*H_bar_C*q_C + inv(H_bar_T)*F_bar*d_f + inv(H_bar_T)*G_bar*d_t;
                 
                 % Define the vector of all free flows
                 q_n = [q_C;d_f;d_t];          
@@ -202,7 +205,7 @@ classdef HydraulicNetworkSimulation
                 end
                 
                 % Substitute the actual flows into the pressure equations
-                Omega_T = subs(Omega_T,[qCvars dfvars dtvars],[qc df d_t]);
+                Omega_T = subs(Omega_T,[qCvars dfvars(1:end-1) dtvars],[qc df d_t]);
                 Omega_C = subs(obj.Omega_C, [qCvars],[qc]);
                 
                 
@@ -222,7 +225,7 @@ classdef HydraulicNetworkSimulation
                 % Get the change in flows
                 ResistancePart = -obj.Graph.Phi*Omegas;
                 HeightPart = (obj.Graph.Psi*(obj.NodeHeights))*(obj.rho*obj.g)/(10^5);
-                PressurePart = (obj.Graph.I*(pt_old-0))*1/10^5;
+                PressurePart = (obj.Graph.I*(pt_old-0));
                 
                 dqdt = obj.P*(ResistancePart+HeightPart+PressurePart); % Note that P is the inverse of Phi J Phi^T
                 
@@ -231,8 +234,8 @@ classdef HydraulicNetworkSimulation
                 tankstartindex = numel(obj.Graph.chords)+numel(obj.Graph.consumers)+numel(obj.Graph.producers)+1;
                 
                 % Get the new tank pressures
-                pt_new = pt_old - 0.000096*dqdt(tankstartindex:end)*ts; % Need to introduce code here to get the actual tank constant from the graph model
-                
+                pt_new = pt_old - 0.000096*d_t; % Need to introduce code here to get the actual tank constant from the graph model
+%                 pt_new = 0;
                
             
              end

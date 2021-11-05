@@ -1,9 +1,8 @@
 classdef PumpComponent
-      %ValveComponent An object-oriented implementation of a water pump
+        %PumpComponent An object-oriented implementation of a water pump
     
     
     properties
-             
         a2  % Pump flow coefficient
         a1  % Pump cross-term coefficient
         a0  % Pump velocity coefficient
@@ -34,8 +33,8 @@ classdef PumpComponent
             obj.type = 'Pump';
             
             % Relevant component parameters
-            obj.alpha_SI = PumpModel(obj);
-            obj.alpha = @(q,w) obj.alpha_SI(q,w)/(10^5*3600^2); % Inherit the function for alpha
+            obj.alpha = PumpModel(obj);
+            obj.alpha_SI = @(q,w) obj.alpha(q,w)*(10^5*3600^2); % Inherit the function for alpha
             
             % Irrelevant component parameters
             obj.dz = 0;

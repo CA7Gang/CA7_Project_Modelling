@@ -53,9 +53,9 @@ classdef GraphModel
                 
                 % Make the loop matrix
                 numC = numel(obj.chords); % Total number of chords 
-%                 obj.B = [eye(numC,numC), -obj.H_bar_C'*inv(obj.H_bar_T')];
-                obj.B = [eye(numC,numC), -obj.H_bar_C'*pinv(obj.H_bar_T')]; % Probably more robust implementation
-                
+                obj.B = [eye(numC,numC), -obj.H_bar_C'*inv(obj.H_bar_T')];
+%                 obj.B = [eye(numC,numC), -obj.H_bar_C'*pinv(obj.H_bar_T')]; % Probably more robust implementation
+%                 
                 % Make the demand matrices
                 [obj.F_bar,obj.G_bar] = GetDemandMatrices(obj);
                 
@@ -86,10 +86,10 @@ classdef GraphModel
         
         function spanT = GetSpanningTree(obj)
             spanT = [];
-            notChords = ismember(obj.edges,obj.chords);
+            notChords = ismember(obj.edges,obj.chords); % Make a vector that contains all the elements of the edges vector that are NOT chords
             for ii = 1:length(notChords)
-                if notChords(ii) == 0
-                    spanT = [spanT obj.edges(ii)];
+                if notChords(ii) == 0 % Check if the current edge is a chord
+                    spanT = [spanT obj.edges(ii)]; % If not a chord, append to the spanning tree vector
                 else
                 end
             end
@@ -99,33 +99,39 @@ classdef GraphModel
             F = zeros(numel(obj.vertices),numel(obj.producers)+numel(obj.consumers));
             G = zeros(numel(obj.vertices),numel(obj.tanks));
             
-            pc = sort([obj.producers obj.consumers]);
+            pc = sort([obj.producers obj.consumers]); % Make a descending-sorted list of the producer and consumer nodes
             
             for ii = 1:length(pc)
-                F(pc(ii),ii) = 1;
+                F(pc(ii),ii) = 1; % Assign ones to the locations in F that have non-zero nodal demand (producers and consumers)
             end
             
             for ii = 1:length(obj.tanks)
-                G(obj.tanks(ii)) = 1;
+                G(obj.tanks(ii)) = 1; % Assign ones to the locations in G that are tanks
             end
             
+            % Kill the row corresponding to the reference node in both F
+            % and G
             G(obj.vref,:) = [];
             F(obj.vref,:) = [];
         end
           
         function [Phi,Psi,I] = MakeBlockMatrices(obj)
-            numC = numel(obj.chords);
-            numFlows = numel(obj.consumers)+numel(obj.producers);
-            numTanks = numel(obj.tanks);
-            numNodes = numel(obj.vertices);
+            numC = numel(obj.chords); % Get the number of chords
+            numFlows = numel(obj.consumers)+numel(obj.producers); % Get the correct total number of non-zero nodal demands
+            numTanks = numel(obj.tanks); % Get the number of tanks 
+            numNodes = numel(obj.vertices); % Get the total number of nodes
             
-            Phi = [eye(numC,numC),-obj.H_bar_C'*inv(obj.H_bar_T)';
+            Phi = [eye(numC,numC),-obj.H_bar_C'*inv(obj.H_bar_T)'; % Collect the flow equations in one big matrix
             zeros(numFlows,numC),obj.F_bar'*inv(obj.H_bar_T)';
             zeros(numTanks,numC),obj.G_bar'*inv(obj.H_bar_T)'];
 
             Psi = [zeros(numC,numNodes-1);obj.F_bar';obj.G_bar'];
             
             I = [zeros(numC,numTanks); zeros(numFlows,numTanks); eye(numTanks)];
+            
+            Psi(6,:) = [];
+            Phi(6,:) = [];
+            I(6,:) = [];
         end
     end
 end

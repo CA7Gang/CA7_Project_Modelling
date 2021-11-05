@@ -29,10 +29,7 @@ classdef PipeComponent
         mu % Flow-dependent loss term for valves (only relevant for valves)
         mu_SI % Flow-dependent valve loss term in SI units
         alpha % Pressure difference across component (only relevant for pumps)
-        alpha_SI % Pressure difference across component in SI units 
-        
-        
-        
+        alpha_SI % Pressure difference across component in SI units       
     end
     
     methods
@@ -47,7 +44,8 @@ classdef PipeComponent
             obj.Diameter = Diameter;
             obj.g = g;
             obj.eta = eta;
-            obj.Reynolds = (4*q_mean)/(pi*v*obj.Diameter);
+            vw = v*(1+1^1.165)^-1;
+            obj.Reynolds = (4*q_mean)/(pi*vw*obj.Diameter);
             obj.kf = kf;
             try
                 obj.h = h;
@@ -61,11 +59,11 @@ classdef PipeComponent
             obj.hf = obj.DarcyWeisbach(); 
             obj.hm = obj.SwameeForm();
             
-            obj.Lambda_SI = obj.FlowLoss();
-            obj.Lambda = @(q) obj.Lambda_SI(q)/(10^5*3600^2);
+            obj.Lambda_SI = obj.FlowLoss(); % Unit is pascals
+            obj.Lambda = @(q) obj.Lambda_SI(q)*1/(10^5); % Unit is bar
             
-            obj.J_SI = obj.FlowDyn();
-            obj.J = obj.J_SI/(10^5*3600);
+            obj.J_SI = obj.FlowDyn(); % Unit is pascals
+            obj.J = obj.J_SI*1/(10^5); % Unit is bar
             
             obj.dz_SI = obj.HeightLoss();
             obj.dz = obj.dz_SI/(10^5);
@@ -93,17 +91,17 @@ classdef PipeComponent
         function hm = SwameeForm(obj)
             %SwameeForm Calculates head loss term due to form resistance
             %via the Swamee equation (see 2.2, e.q 2.7b in ISBN 9780470225059)
-            hm = obj.kf*8/(pi^2*obj.g*obj.Diameter^4);
+            hm = obj.kf*8/(pi^2*obj.g*obj.Diameter^4); 
         end
         
         function J = FlowDyn(obj)
             %FlowDyn Calculates the flow dynamics term J
-            J = obj.Length*obj.rho/obj.Area;
+            J = obj.Length*obj.rho/obj.Area*1/3600;
         end
         
         function Lambda = FlowLoss(obj)
             %FlowLoss Calculates the flow-dependent loss term Lambda
-            Lambda = @(q) (obj.hf+obj.hm)*obj.rho*abs(q)*q;
+            Lambda = @(q) (obj.hf+obj.hm)*abs(q)*q*1/(3600^2)*obj.rho*obj.g; % Unit is pascals
         end
         
         function dz = HeightLoss(obj)
