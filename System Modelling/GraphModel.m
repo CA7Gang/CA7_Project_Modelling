@@ -125,13 +125,22 @@ classdef GraphModel
             zeros(numFlows,numC),obj.F_bar'*inv(obj.H_bar_T)';
             zeros(numTanks,numC),obj.G_bar'*inv(obj.H_bar_T)'];
 
-            Psi = [zeros(numC,numNodes-1);obj.F_bar';obj.G_bar'];
+            Psi = [zeros(numC,numNodes-1);obj.F_bar';obj.G_bar']; % Collect the height equations in one big matrix
             
-            I = [zeros(numC,numTanks); zeros(numFlows,numTanks); eye(numTanks)];
+            I = [zeros(numC,numTanks); zeros(numFlows,numTanks); eye(numTanks)]; % Collect the pressure equations in one big matrix
             
-            Psi(6,:) = [];
-            Phi(6,:) = [];
-            I(6,:) = [];
+            % Make a sorted vector of consumers and producers
+            pc = sort([obj.consumers obj.producers]);
+            pc = [pc obj.tanks];
+                        
+            % Identify the flow that needs to die (reference flow) assuming
+            % chord flows are always listed at the top
+            somebodyKillMePlease = find(pc == obj.vref)+numC;
+            
+            % Ceterum censeo reference fluxus delendam esse
+            Psi(somebodyKillMePlease,:) = [];
+            Phi(somebodyKillMePlease,:) = [];
+            I(somebodyKillMePlease,:) = [];
         end
     end
 end

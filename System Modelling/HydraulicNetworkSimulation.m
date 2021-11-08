@@ -16,12 +16,13 @@ classdef HydraulicNetworkSimulation
         q_C % Symbolic variable for chordal flows
         q_T % Symbolic variable for tree flows
         q_n % Symbolic variable for final composite state vector
-        qdot % Symbolic variable for derivate of flows in edges
+        Q_n % Coefficient matrix for the free flows
+
         
         qC_eq % Equation describing KCL
         
         p % Symbolic variable for nodal pressures
-        pdot % Symbolic variable for nodal pressure derivative
+
         
         d % Symbolic variable for nodal demands
         d_f % Symbolic variable for non-zero nodal flows
@@ -64,8 +65,6 @@ classdef HydraulicNetworkSimulation
             % Define the symbolic variables we'll need later
             syms q [numel(obj.Graph.edges) 1]
             syms d [numel(obj.Graph.vertices) 1]
-            syms pdot [numel(obj.Graph.vertices) 1]
-            syms qdot [numel(obj.Graph.edges) 1]
             syms p [numel(obj.Graph.vertices) 1]
             syms w [numel(obj.Graph.producers) 1]
             syms OD [numel(obj.Graph.consumers) 1]
@@ -88,14 +87,12 @@ classdef HydraulicNetworkSimulation
              end  
              
              for ii = 1:length(obj.r_C)
-                    obj.r_all{obj.Graph.chords(ii)} = obj.r_T{ii};
+                    obj.r_all{obj.Graph.chords(ii)} = obj.r_C{ii};
              end
             
             % Map the symbolic variables onto the simulation object
             obj.q = q;
             obj.d = d;
-            obj.pdot = pdot;
-            obj.qdot = qdot;
             obj.p = p;
             obj.w = sym(zeros(numel(obj.Graph.edges),1));
             obj.OD = sym(zeros(numel(obj.Graph.edges),1));
@@ -115,16 +112,16 @@ classdef HydraulicNetworkSimulation
             end
             
             % Collect the graph flows and compute the pressure drops
-            [obj.q_C, obj.q_T, obj.d_f, obj.d_t,obj.q_n] = ParseGraphInfo(obj);
+            [obj.q_C, obj.q_T, obj.d_f, obj.d_t,obj.q_n,obj.Q_n] = ParseGraphInfo(obj);
             [obj.Omega_T, obj.Omega_C] = ComputePressureDrops(obj);  
             
-            % Solve the static equation to find the chord flow equations
+            % Solve the static equation to find the steady-state chord flow equations
             obj.qC_eq = KCL(obj);
               
             end
             
             
-            function [q_C,q_T,d_f,d_t,q_n] = ParseGraphInfo(obj)
+            function [q_C,q_T,d_f,d_t,q_n,Q_n] = ParseGraphInfo(obj)
                 
                 % Identify the chord flows
                 for ii = 1:length(obj.Graph.chords)
@@ -139,6 +136,7 @@ classdef HydraulicNetworkSimulation
                     d_f(ii,1) = obj.d(pc(ii));
                 end
                 
+                
                 % Identify the flows at the tank-connected nodes
                 for ii = 1:length(obj.Graph.tanks)
                     d_t(ii,1) = obj.d(obj.Graph.tanks(ii));
@@ -149,12 +147,27 @@ classdef HydraulicNetworkSimulation
                 H_bar_T = obj.Graph.H_bar_T; H_bar_C = obj.Graph.H_bar_C;
                 G_bar = obj.Graph.G_bar; F_bar = obj.Graph.F_bar;
                 
-                % Use the identify for spanning tree flows based on
+                % Use the identity for spanning tree flows based on
                 % q_C,d_f,d_t
-                q_T = -inv(H_bar_T)*H_bar_C*q_C + inv(H_bar_T)*F_bar*d_f + inv(H_bar_T)*G_bar*d_t;
+                q_T = -H_bar_T\H_bar_C*q_C + H_bar_T\F_bar*d_f + H_bar_T\G_bar*d_t;
                 
                 % Define the vector of all free flows
-                q_n = [q_C;d_f;d_t];          
+                q_n = [q_C;d_f;d_t];        
+                
+                Q_n = nan(length(obj.Graph.edges),length(q_n));
+                
+                for jj = 1:length(q_n)
+                    for ii = 1:length(q_T)
+                        Q_n(obj.Graph.spanT(ii),jj) = diff(q_T(ii),q_n(jj));
+                    end
+                end
+                
+                 for jj = 1:length(q_n)
+                    for ii = 1:length(q_C)
+                        Q_n(obj.Graph.chords(ii),jj) = diff(q_C(ii),q_n(jj));
+                    end
+                end
+                
             end
         
             function [Omega_T,Omega_C] = ComputePressureDrops(obj)
@@ -168,6 +181,8 @@ classdef HydraulicNetworkSimulation
                 for ii = 1:length(obj.r_C)
                     Omega_C(ii) = obj.r_C{ii}(obj.q_C(ii),obj.w(obj.Graph.chords(ii)),obj.OD(obj.Graph.chords(ii)));
                 end
+              
+
             end
             
             function eqn = KCL(obj)
@@ -177,48 +192,38 @@ classdef HydraulicNetworkSimulation
                 eqn = obj.Omega_C'-HbarC'*inv(HbarT)'*obj.Omega_T' == 0;
             end
         
-            function [dqdt,pbar,pt_new] = Model_TimeStep(obj,w,OD,qc,df,d_t,pt_old,ts)
+            function [dqdt,pbar,pt_new] = Model_TimeStep(obj,w,OD,qc,df,d_t,pt_old)
                 
-                % Figure out which edges are pumps and valves so we can
-                % substitute in OD and w
+                % Make vectors describing the mapping of flows, pump speeds
+                % and opening degrees into the system equations
+                
+                q_vec = obj.Q_n*[qc';df';d_t];
+                w_vec = zeros(length(obj.Graph.edges),1);
+                o_vec = zeros(length(obj.Graph.edges),1);
+                
                 for ii = 1:length(obj.PumpEdges)
-                    PumpSubs(ii) = obj.w(obj.PumpEdges(ii));
+                    w_vec(obj.PumpEdges(ii),ii) = 1;
                 end
                 
                 for ii = 1:length(obj.ValveEdges)
-                    ValveSubs(ii) = obj.OD(obj.ValveEdges(ii));
+                    o_vec(obj.ValveEdges(ii),ii) = 1;
                 end
                 
-                % Substitute OD and w into the pressure loss expression for
-                % the spanning tree
-                Omega_T = subs(obj.Omega_T,[PumpSubs ValveSubs],[w OD]);
+                w_vec = w_vec*w';
+                o_vec = o_vec*OD';
                 
-                % Find the correct elements for the nodal demands
-                for ii = 1:length(obj.d_f)
-                    dfvars(ii) = obj.d_f(ii);
+ 
+                % Use the edge pressure equations to find the pressures in
+                % the full graph and spanning tree.
+                for ii = 1:length(obj.Graph.edges)
+                    Omegas(ii,1) = obj.r_all{ii}(q_vec(ii),w_vec(ii),o_vec(ii));
                 end
-                for ii = 1:length(obj.d_t)
-                    dtvars(ii) = obj.d_t(ii);
-                end
-                for ii = 1:length(obj.q_C)
-                    qCvars(ii) = obj.q_C(ii);
-                end
-                
-                % Substitute the actual flows into the pressure equations
-                Omega_T = subs(Omega_T,[qCvars dfvars(1:end-1) dtvars],[qc df d_t]);
-                Omega_C = subs(obj.Omega_C, [qCvars],[qc]);
-                
-                
-                % Collect the pressure equations in one vector
-                Omegas = zeros(max(obj.Graph.edges),1);
                 
                 for ii = 1:length(obj.Graph.spanT)
-                    Omegas(obj.Graph.spanT(ii)) = Omega_T(ii);
-                end
-                for ii = 1:length(obj.Graph.chords)
-                    Omegas(obj.Graph.chords(ii)) = Omega_C(ii);
+                    Omega_T(ii) = Omegas(obj.Graph.spanT(ii));
                 end
 
+                
                 % Find the non-reference node pressures
                 pbar = inv(obj.Graph.H_bar_T)'*Omega_T' - obj.NodeHeights*(obj.rho*obj.g)/(10^5);
                 
@@ -235,8 +240,6 @@ classdef HydraulicNetworkSimulation
                 
                 % Get the new tank pressures
                 pt_new = pt_old - 0.000096*d_t; % Need to introduce code here to get the actual tank constant from the graph model
-%                 pt_new = 0;
-               
             
              end
             
