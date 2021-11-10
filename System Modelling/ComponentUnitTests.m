@@ -96,19 +96,19 @@ ts = 0.025;
 
 f_p = 2/(24*60); % Assumed pump frequency
 
-t = 0:ts:(10*60); % Time vector corresponding to 24 hours
+t = 0:ts:(20*60); % Time vector corresponding to 24 hours
 % w = 50*(1+square(12*pi*f_p*t,50))/2+50*(1+square(12*pi*f_p*t,100))/2; % Pump waveforms
 % OD =(1+sin(pi*f_p*t+t(end)/2))/2; % Valve waveforms
 
 
 clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures
-w1 = 66*ones(length(t),1); w2 = 66*ones(length(t),1);
+w1 = 50*ones(length(t),1); w2 = 50*ones(length(t),1);
 % w1 = w; w2 = w; 
 % OD1 = OD; OD2 = OD;
 OD1 = 0.5*ones(length(t),1); OD2 = 0.5*ones(length(t),1);
 qc = [0;0];
 df = [0;0;0;0]; 
-pt = 4*rho*g/10^5;
+pt =0*4*rho*g/10^5;
 d_t = 0;
 
 for ii = 1:length(t)
@@ -187,17 +187,17 @@ plot(t,flowchange(end,:))
                 
                 Omegas = [Omega_C;Omega_T];
 
-                syms w1 w2 OD1 OD2 d6
-                w = 66; OD = 0.5;
+                syms w1 w2 OD1 OD2 d6 pt
+                w = 50; OD = 0.5; tankflow = 0;
                 
                 
 Omegas = subs(Omegas,[w1 w2],[w w]);
 Omegas = subs(Omegas,[OD1 OD2],[OD OD]);
-Omegas = subs(Omegas,d6,0);
+Omegas = subs(Omegas,d6,tankflow);
 
-ResistancePart = fooGraph.Phi*Omegas;
+ ResistancePart = fooGraph.Phi*Omegas;
 HeightPart = (fooGraph.Psi*(fooSim.NodeHeights))*(fooSim.rho*fooSim.g)/(10^5);
-PressurePart = (fooGraph.I*(pt-0))*1/10^5;
+PressurePart = (fooGraph.I*(pt-0));
 
 dqdt = fooSim.P*(-ResistancePart+HeightPart+PressurePart);
 
