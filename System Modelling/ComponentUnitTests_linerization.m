@@ -1,9 +1,9 @@
 clear all
-close all
+% close all
 
 g = 9.82; % Gravitational acceleration
 h0 = 0; % Height of the reference node
-rho = 1; % Density of water (kg/L)
+rho = 1000; % Density of water (kg/L)
 v = 1.012*10^-6; % Kinematic viscosity of water
 q_mean = 1.5/3600; % Mean assumed flow per second (1.5 cubic meters / hr)
 
@@ -20,9 +20,12 @@ PipeDiam = 10^-3.*[25 25 25 25 25 15 25 25 15 15]';
 
 eta = 5*10^-5.*ones(10,1); % Pipe roughness factors
 
-a2 = -[0.3292 0.3292]';
-a1 = [0.038 0.038]';
-a0 = [0.0009 0.0009]';
+
+% Pump coefficients
+a2 = -[0.0355 0.0355]';
+a1 = [0.0004 0.0004]';
+a0 = [0.0001 0.0001]';
+
 
 Kv = ones(1,2);
 
@@ -84,8 +87,7 @@ H = [1	0	0	0	0	0	0	0	0	0	0	0	0	0;
  
 % NodeHeights = zeros(size(H,1)-1,1)-h0;
 NodeHeights = [0; 0; 0; 0; 0.9; 0; 0; 3; 0.9; 0; 0; 0]-h0; 
-p0 = 3;
-% p0 = 0;
+p0 = 0;
  
  
 fooGraph = GraphModel(H,[3,7],13,[1 13],[5 9],8);
@@ -108,21 +110,60 @@ fooSim = HydraulicNetworkSimulation(fooGraph,Components,PumpEdges,ValveEdges,Ine
                     Omegas(fooGraph.chords(ii)) = fooSim.Omega_C(ii);
                 end
 
-                syms w1 w2 OD1 OD2
+                syms w1 w2 OD1 OD2 
                 w = 66; OD = 0.5;
+                dtank = 0;
                 
 Omegas = subs(Omegas,[w1 w2],[w w]);
 Omegas = subs(Omegas,[OD1 OD2],[OD OD]);
-
+Omegas = subs(Omegas,d8,dtank);
+pt = 4*rho*g/10^5;
+% pt = -0.25;
 ResistancePart = fooGraph.Phi*Omegas;
-HeightPart = (fooGraph.Psi*(fooSim.NodeHeights))*(fooSim.rho*fooSim.g)/(10^5);
-PressurePart = (fooGraph.I*(p0-0))*1/10^5;
+HeightPart = (fooSim.Graph.Psi*(fooSim.NodeHeights))*(fooSim.rho*fooSim.g)/(10^5);
+PressurePart = (fooSim.Graph.I*(pt-0));
 
 dqdt = fooSim.P*(-ResistancePart+HeightPart+PressurePart);
 
 eqpoint = solve(dqdt == 0)
+struct2array(eqpoint)
+%%
+
+ts = 0.01;
 
 
+t = 0:ts:(6*60); % Time vector corresponding to 6 min
+
+clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures
+
+w1 = 66*ones(length(t),1); w2 = 66*ones(length(t),1);
+OD1 = 0.5*ones(length(t),1); OD2 = 0.5*ones(length(t),1);
+
+qc = [0;0];
+df = [0;0;0;0]; 
+pt = 4*rho*g/10^5; % 4 bar normalt i boliger
+d_t = 0;
+
+for ii = 1:length(t)
+    [dqdt,pbar,pt_new] = fooSim.Model_TimeStep([w1(ii) w2(ii)],[OD1(ii) OD2(ii)],[qc(1) qc(2)],[df(1) df(2) df(3) df(4)],d_t,pt);
+    qc(1) = df(1)+dqdt(1)*ts;
+    qc(2) = df(2)+dqdt(2)*ts;
+    df(1) = df(1)+dqdt(3)*ts; 
+    df(2) = df(2)+dqdt(4)*ts; 
+    df(3) = df(3)+dqdt(5)*ts; 
+    d_t = d_t+dqdt(end)*ts;
+
+    % Must obey basic mass conservation if no leaks are assumed
+    masscon = -cumsum([df(1:3);d_t]);
+    df(4) = masscon(end);
+
+    pt = pt_new;
+    flow(:,ii) = [qc;df;d_t];
+    pressures(:,ii) = double(pbar);
+    tankpres(ii) = pt;
+end
+
+%%
 
 W0 = [66;0;0;0;0;0;0;0;0;0;0;0;0;66];
 a0_array = [a0(1);0;0;0;0;0;0;0;0;0;0;0;0;a0(2)];
@@ -147,5 +188,42 @@ Kv_array = [zeros(1,3),1,zeros(1,6),1,zeros(1,3)];
 %dd_pipes = (a1_array(2)*W0(1)+(abs(q_0(2))+sign(q_0(2)).*q_0(2))*(K_lampda(2)+a2_array(2)+1/(Kv_array(2)*OD0(2)).^2))
 % dd_pump = a1*q0+2*a0*W0
 
+%%
+close all
 
+figure()
+subplot(2,2,1)
+plot(t,flow(1:2,:))
+legend('Chord 1','Chord 2')
+subplot(2,2,2)
+plot(t,flow(3,:))
+hold on
+plot(t,flow(6,:))
+hold off
+legend('Pump 1','Pump 2')
+subplot(2,2,3)
+plot(t,flow(4:5,:))
+legend('Consumer 1','Consumer 2')
+subplot(2,2,4)
+plot(t,flow(end,:))
+legend('Tank')
 
+figure()
+plot(t,pressures)
+
+figure()
+subplot(3,1,1)
+plot(t,tankpres)
+legend('Tank Pressure')
+subplot(3,1,2)
+plot(t,OD1)
+hold on
+plot(t,OD2)
+hold off
+legend('Valve 1','Valve 2')
+subplot(3,1,3)
+plot(t,w1)
+hold on
+plot(t,w2)
+hold off
+legend('Pump 1','Pump 2')
