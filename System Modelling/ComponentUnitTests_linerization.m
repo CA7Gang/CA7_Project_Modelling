@@ -1,5 +1,5 @@
 clear all
-% close all
+close all
 
 g = 9.82; % Gravitational acceleration
 h0 = 0; % Height of the reference node
@@ -132,7 +132,7 @@ struct2array(eqpoint)
 ts = 0.00001;
 
 
-t = 0:ts:(6*60)/100; % Time vector corresponding to 6 min
+t = 0:ts:(6*60)/10; % Time vector corresponding to 6 min
 
 clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures
 
@@ -161,6 +161,9 @@ for ii = 1:length(t)
     flow(:,ii) = [qc;df;d_t];
     pressures(:,ii) = double(pbar);
     tankpres(ii) = pt;
+
+	dqdt_saved(:,ii) = dqdt;
+
 end
 
 %%
@@ -188,43 +191,186 @@ end
 % %dd_pipes = (a1_array(2)*W0(1)+(abs(q_0(2))+sign(q_0(2)).*q_0(2))*(K_lampda(2)+a2_array(2)+1/(Kv_array(2)*OD0(2)).^2))
 % % dd_pump = a1*q0+2*a0*W0
 
+
 %%
-close all
+close all; clear ax
 
-figure()
-subplot(2,2,1)
-plot(t,flow(1:2,:))
-legend('Chord 1','Chord 2')
-subplot(2,2,2)
-plot(t,flow(3,:))
-hold on
-plot(t,flow(6,:))
-hold off
-legend('Pump 1','Pump 2')
-subplot(2,2,3)
-plot(t,flow(4:5,:))
-legend('Consumer 1','Consumer 2')
-subplot(2,2,4)
-plot(t,flow(end,:))
-legend('Tank')
+x      = 4;   % Screen position
+y      = 3;   % Screen position
+width  = 30; % Width of figure
+height = 25; % Height of figure (by default in pixels)
 
-figure()
-plot(t,pressures)
+figures = []
 
-figure()
-subplot(3,1,1)
-plot(t,tankpres)
-legend('Tank Pressure')
-subplot(3,1,2)
-plot(t,OD1)
-hold on
-plot(t,OD2)
-hold off
-legend('Valve 1','Valve 2')
-subplot(3,1,3)
-plot(t,w1)
-hold on
-plot(t,w2)
-hold off
-legend('Pump 1','Pump 2')
+legends = {	["Chord 1","Chord 2"];
+			["Pump 1","Pump 2"];
+			["Consumer 1","Consumer 2"];
+			["Tank Flow"]}
 
+tits = {	["Chord Flows (q_C)"];
+			["Pump Flows (d_p)"];
+			["Consumer Flows (d_c)"];
+			["Tank flow (d_t)"]}
+
+ylab = "Flow [m^3/h]"
+xlab = "Time [sec]"
+
+flowindices = {	[1,2];	% chords
+				[3,6];	% pumps
+				[4,5];	% consumers
+				[7]}	% tank
+
+
+
+figures = [figure( 'Color', 'white', 'Units','centimeters','Position', [x y width height])]
+for i=1:4
+	ax(i) = subplot(4,1,i)
+	plot(t,flow(flowindices{i},:))
+	legend(legends{i})
+	xlabel(xlab)
+	ylabel(ylab)
+	title(tits{i})
+	grid on
+end
+linkaxes(ax,'x')
+xlim([0 2.05])
+% sgtitle(['Flows in Water network; initial tank pressure = ', num2str(pt_init)], 'Fontsize',20)
+
+
+%% tank, flow, OD/omega
+clear ax
+output = {	tankpres; 
+			flow(7,:);
+			[w1, w2]';
+			[OD1, OD2]';}
+
+legends = {	["Tank Pressure"];
+			["Tank Flow"];
+			["Pump1 Speed","Pump1 Speed"];
+			["Consumer 1","Consumer 2"]}
+
+tits = {	["Tank Pressure"];
+			["Tank Flow"];
+			["Inputs"];
+			["Disturbances"]}
+
+ylab = {	["Tank Pressure [bar]"];
+			["Flow [m^3/h]"];
+			["Pump speed [%]"];
+			["Opening degree"]}
+xlab = "Time [sec]"
+ylims = {	[-10 10];
+			[-10 10];
+			[-0.5 100.5];
+			[-0.005 1.005]}
+
+
+figures = [figures; figure( 'Color', 'white', 'Units','centimeters','Position', [x y width height])]
+for i=1:4
+	ax(i) = subplot(4,1,i)
+	plot(t,output{i})
+	legend(legends{i})
+	xlabel(xlab)
+	ylabel(ylab{i})
+	title(tits{i})
+	ylim(ylims{i})
+	grid on
+end
+linkaxes(ax,'x')
+xlim([0 2.05])
+% sgtitle(['Tank measures affected by inputs and disturbances; initial tank pressure = ', num2str(pt_init)], 'Fontsize',20)
+
+%% 
+% idea afterwards: identify which pipe has bigger inertia ie. pressure
+% drop in each pipe and flow in each pipe
+clear ax
+%				H_bar' 11x9 * 9x1 = 
+delta_p = fooSim.Graph.H_bar'*pressures;
+% manual way - should be doable automatically
+flowsall = zeros([length(fooSim.Graph.edges),length(t)]);
+flowsall(fooSim.Graph.chords,:) = flow(1:2,:); % chords
+
+output = {	[delta_p];
+			[flowsall]} % pressures and 
+legends = {}
+
+for i = 1:length(fooSim.Graph.edges)
+	legends{i,1} = [sprintf("Pressure drop: edge %d", fooSim.Graph.edges(i)), ...
+		sprintf("Flow: edge %d", fooSim.Graph.edges(i))]
+end
+
+
+% tits = {	["Tank Pressure"];
+% 			["Tank Flow"];
+% 			["Inputs"];
+% 			["Disturbances"]}
+% 
+% 
+ylab = "Pressure [bar]/ flow[m^3/h]"
+xlab = "Time [sec]"
+% ylims = {	[-inf inf];
+% 			[-inf inf];
+% 			[-0.5 100.5];
+% 			[-0.005 1.005]}
+
+
+figures = [figures; figure( 'Color', 'white', 'Units','centimeters','Position', [x y width height])]
+
+for i=1:11
+	ax(i) = subplot(4,3,i)
+	plot(t,output{1,1}(i,:))
+	hold on
+	plot(t,output{2,1}(i,:))
+	legend(legends{i})
+	xlabel(xlab)
+	ylabel(ylab)
+% 	title(tits{i})
+% 	ylim(ylims{i})
+	grid on
+end
+% linkaxes(ax,'x')
+xlim([-2 t(end)+1])
+sgtitle(['Pressure and flow in edges', ], 'Fontsize',20)
+
+
+
+%%
+% close all
+% 
+% figure()
+% subplot(2,2,1)
+% plot(t,flow(1:2,:))
+% legend('Chord 1','Chord 2')
+% subplot(2,2,2)
+% plot(t,flow(3,:))
+% hold on
+% plot(t,flow(6,:))
+% hold off
+% legend('Pump 1','Pump 2')
+% subplot(2,2,3)
+% plot(t,flow(4:5,:))
+% legend('Consumer 1','Consumer 2')
+% subplot(2,2,4)
+% plot(t,flow(end,:))
+% legend('Tank')
+% 
+% figure()
+% plot(t,pressures)
+% 
+% figure()
+% subplot(3,1,1)
+% plot(t,tankpres)
+% legend('Tank Pressure')
+% subplot(3,1,2)
+% plot(t,OD1)
+% hold on
+% plot(t,OD2)
+% hold off
+% legend('Valve 1','Valve 2')
+% subplot(3,1,3)
+% plot(t,w1)
+% hold on
+% plot(t,w2)
+% hold off
+% legend('Pump 1','Pump 2')
+% 
