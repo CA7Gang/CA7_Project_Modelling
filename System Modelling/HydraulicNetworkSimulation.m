@@ -154,20 +154,23 @@ classdef HydraulicNetworkSimulation
                 % Define the vector of all free flows
                 q_n = [q_C;d_f;d_t];        
                 
-                Q_n = nan(length(obj.Graph.edges),length(q_n));
+                Q_t = nan(length(obj.Graph.spanT),length(q_n));
                 
                 for jj = 1:length(q_n)
                     for ii = 1:length(q_T)
-                        Q_n(obj.Graph.spanT(ii),jj) = diff(q_T(ii),q_n(jj));
+                        Q_t(ii,jj) = diff(q_T(ii),q_n(jj));
                     end
                 end
+                
+                Q_c = nan(length(obj.Graph.chords));
                 
                  for jj = 1:length(q_n)
                     for ii = 1:length(q_C)
-                        Q_n(obj.Graph.chords(ii),jj) = diff(q_C(ii),q_n(jj));
+                        Q_c(ii,jj) = diff(q_C(ii),q_n(jj));
                     end
-                end
+                 end
                 
+                Q_n = [Q_c;Q_t];
             end
         
             function [Omega_T,Omega_C] = ComputePressureDrops(obj)
@@ -198,16 +201,32 @@ classdef HydraulicNetworkSimulation
                 % and opening degrees into the system equations
                 
                 q_vec = obj.Q_n*[qc';df';d_t];
-                w_vec = zeros(length(obj.Graph.edges),1);
-                o_vec = zeros(length(obj.Graph.edges),1);
+                w_vec = zeros(length(obj.Graph.spanT),1);
+                o_vec = zeros(length(obj.Graph.spanT),1);
+                
+                
+                spanT = obj.Graph.spanT;
+                chords = obj.Graph.chords;
                 
                 for ii = 1:length(obj.PumpEdges)
-                    w_vec(obj.PumpEdges(ii),ii) = 1;
+                    PumpIndex(ii) = find(spanT == obj.PumpEdges(ii));
                 end
                 
                 for ii = 1:length(obj.ValveEdges)
-                    o_vec(obj.ValveEdges(ii),ii) = 1;
+                    ValveIndex(ii) = find(spanT == obj.ValveEdges(ii));
                 end
+                
+                for ii = 1:length(obj.PumpEdges)
+                    w_vec(PumpIndex(ii),ii) = 1;
+                end
+                
+                for ii = 1:length(obj.ValveEdges)
+                    o_vec(ValveIndex(ii),ii) = 1;
+                end
+                
+                w_vec = [zeros(size(chords,2)); w_vec];
+                
+                o_vec = [zeros(size(chords,2)); o_vec];
                 
                 w_vec = w_vec*w';
                 o_vec = o_vec*OD';
@@ -215,20 +234,24 @@ classdef HydraulicNetworkSimulation
  
                 % Use the edge pressure equations to find the pressures in
                 % the full graph and spanning tree.
+                
+                omegaIndices = [chords spanT];
+                
+                
                 for ii = 1:length(obj.Graph.edges)
-                    Omegas(ii,1) = obj.r_all{ii}(q_vec(ii),w_vec(ii),o_vec(ii));
+                    Omegas(ii) = obj.r_all{omegaIndices(ii)}(q_vec(ii),w_vec(ii),o_vec(ii));
                 end
                 
-                for ii = 1:length(obj.Graph.spanT)
-                    Omega_T(ii) = Omegas(obj.Graph.spanT(ii));
-                end
-
+                Omega_T = Omegas(size(chords,2)+1:end);
+               
+                
+    
                 
                 % Find the non-reference node pressures
                 pbar = inv(obj.Graph.H_bar_T)'*Omega_T' - obj.NodeHeights*(obj.rho*obj.g)/(10^5);
                 
                 % Get the change in flows
-                ResistancePart = -obj.Graph.Phi*Omegas;
+                ResistancePart = -obj.Graph.Phi*Omegas';
                 HeightPart = (obj.Graph.Psi*(obj.NodeHeights))*(obj.rho*obj.g)/(10^5);
                 PressurePart = (obj.Graph.I*(pt_old-0));
                 
