@@ -112,11 +112,11 @@ fooSim = HydraulicNetworkSimulation(fooGraph,Components,PumpEdges,ValveEdges,Ine
 
                 syms w1 w2 OD1 OD2 
                 w = 66; OD = 0.5;
-                dtank = 0;
+                %dtank = 0;
                 
 Omegas = subs(Omegas,[w1 w2],[w w]);
 Omegas = subs(Omegas,[OD1 OD2],[OD OD]);
-Omegas = subs(Omegas,d8,dtank);
+%Omegas = subs(Omegas,d8,dtank);
 pt = 4*rho*g/10^5;
 % pt = -0.25;
 ResistancePart = fooGraph.Phi*Omegas;
@@ -129,10 +129,10 @@ eqpoint = solve(dqdt == 0)
 struct2array(eqpoint)
 %%
 
-ts = 0.01;
+ts = 0.00001;
 
 
-t = 0:ts:(6*60); % Time vector corresponding to 6 min
+t = 0:ts:(6*60)/100; % Time vector corresponding to 6 min
 
 clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures
 
@@ -146,8 +146,8 @@ d_t = 0;
 
 for ii = 1:length(t)
     [dqdt,pbar,pt_new] = fooSim.Model_TimeStep([w1(ii) w2(ii)],[OD1(ii) OD2(ii)],[qc(1) qc(2)],[df(1) df(2) df(3) df(4)],d_t,pt);
-    qc(1) = df(1)+dqdt(1)*ts;
-    qc(2) = df(2)+dqdt(2)*ts;
+    qc(1) = qc(1)+dqdt(1)*ts;
+    qc(2) = qc(2)+dqdt(2)*ts;
     df(1) = df(1)+dqdt(3)*ts; 
     df(2) = df(2)+dqdt(4)*ts; 
     df(3) = df(3)+dqdt(5)*ts; 
@@ -164,29 +164,29 @@ for ii = 1:length(t)
 end
 
 %%
-
-W0 = [66;0;0;0;0;0;0;0;0;0;0;0;0;66];
-a0_array = [a0(1);0;0;0;0;0;0;0;0;0;0;0;0;a0(2)];
-a1_array = [a1(1);0;0;0;0;0;0;0;0;0;0;0;0;a1(2)];
-a2_array = [a2(1);0;0;0;0;0;0;0;0;0;0;0;0;a2(2)];
-
-syms d1 d5 d8 d9 q3 q7
-% NB!!! tilføj cords!
-q_0_no_chords = subs(fooSim.q_T,[d1 d5 d8 d9 q3 q7],[eqpoint.d1 eqpoint.d5 eqpoint.d8 eqpoint.d9 eqpoint.q3 eqpoint.q7]);
-q_0 = [q_0_no_chords(1:2);eqpoint.q3;q_0_no_chords(3:6);eqpoint.q7;q_0_no_chords(7:12)];
-OD0 =[0;0;0;0.5;0;0;0;0;0;0;0.5;0;0;0];
-
-for i = 1:length(Pipes)
-    K_lampda_only_pipes(i) = ((Pipes(i).hm+Pipes(i).hf)*Pipes(i).rho)/(10^5*3600^2);
-end
-
-K_lampda = [0,K_lampda_only_pipes(1:2),0,K_lampda_only_pipes(3:8),0,K_lampda_only_pipes(9:10),0];
-Kv_array = [zeros(1,3),1,zeros(1,6),1,zeros(1,3)];
-
-
-%dd_pipes = a1_array.*W0+(abs(q_0)+sign(q_0).*q_0)*(K_lampda'+a2_array+1./(Kv_array'.*OD0).^2)
-%dd_pipes = (a1_array(2)*W0(1)+(abs(q_0(2))+sign(q_0(2)).*q_0(2))*(K_lampda(2)+a2_array(2)+1/(Kv_array(2)*OD0(2)).^2))
-% dd_pump = a1*q0+2*a0*W0
+% 
+% W0 = [66;0;0;0;0;0;0;0;0;0;0;0;0;66];
+% a0_array = [a0(1);0;0;0;0;0;0;0;0;0;0;0;0;a0(2)];
+% a1_array = [a1(1);0;0;0;0;0;0;0;0;0;0;0;0;a1(2)];
+% a2_array = [a2(1);0;0;0;0;0;0;0;0;0;0;0;0;a2(2)];
+% 
+% syms d1 d5 d8 d9 q3 q7
+% % NB!!! tilføj cords!
+% q_0_no_chords = subs(fooSim.q_T,[d1 d5 d8 d9 q3 q7],[eqpoint.d1 eqpoint.d5 eqpoint.d8 eqpoint.d9 eqpoint.q3 eqpoint.q7]);
+% q_0 = [q_0_no_chords(1:2);eqpoint.q3;q_0_no_chords(3:6);eqpoint.q7;q_0_no_chords(7:12)];
+% OD0 =[0;0;0;0.5;0;0;0;0;0;0;0.5;0;0;0];
+% 
+% for i = 1:length(Pipes)
+%     K_lampda_only_pipes(i) = ((Pipes(i).hm+Pipes(i).hf)*Pipes(i).rho)/(10^5*3600^2);
+% end
+% 
+% K_lampda = [0,K_lampda_only_pipes(1:2),0,K_lampda_only_pipes(3:8),0,K_lampda_only_pipes(9:10),0];
+% Kv_array = [zeros(1,3),1,zeros(1,6),1,zeros(1,3)];
+% 
+% 
+% %dd_pipes = a1_array.*W0+(abs(q_0)+sign(q_0).*q_0)*(K_lampda'+a2_array+1./(Kv_array'.*OD0).^2)
+% %dd_pipes = (a1_array(2)*W0(1)+(abs(q_0(2))+sign(q_0(2)).*q_0(2))*(K_lampda(2)+a2_array(2)+1/(Kv_array(2)*OD0(2)).^2))
+% % dd_pump = a1*q0+2*a0*W0
 
 %%
 close all
@@ -227,3 +227,4 @@ hold on
 plot(t,w2)
 hold off
 legend('Pump 1','Pump 2')
+
