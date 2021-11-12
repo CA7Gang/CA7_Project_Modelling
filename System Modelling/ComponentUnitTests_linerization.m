@@ -100,87 +100,58 @@ ValveEdges = [4;11];
 fooSim = HydraulicNetworkSimulation(fooGraph,Components,PumpEdges,ValveEdges,Inertias,NodeHeights,p0,rho,g);
 %%
 
- % Collect the pressure equations in one vector
-                Omegas = sym(zeros(max(fooGraph.edges),1));
+%%
+
+ % Collect the pressure equations in one vector (chords at the top)
+                Omega_T = sym(zeros(length(fooGraph.spanT),1));
+                Omega_C = sym(zeros(length(fooGraph.chords),1));
                 
                 for ii = 1:length(fooGraph.spanT)
-                    Omegas(fooGraph.spanT(ii)) = fooSim.Omega_T(ii);
+                    Omega_T(ii) = fooSim.Omega_T(ii);
                 end
                 for ii = 1:length(fooGraph.chords)
-                    Omegas(fooGraph.chords(ii)) = fooSim.Omega_C(ii);
+                    Omega_C(ii) = fooSim.Omega_C(ii);
                 end
-
-                syms w1 w2 OD1 OD2 pt d8
-                w = 66; OD = 0.5;
-                dt = 0;
                 
-Omegas = subs(Omegas,[w1 w2],[w w]);
-Omegas = subs(Omegas,[OD1 OD2],[OD OD]);
-Omegas = subs(Omegas,d8,dt);
+                Omegas = [Omega_C;Omega_T];
+
+                syms w1 w2 OD1 OD2 p q3 q7 d1 d5 d9 d8
+                w = 66; OD = 0.5; tankflow = 0;
+                
+                
+% Omegas = subs(Omegas,[w1 w2],[w w]);
+% Omegas = subs(Omegas,[OD1 OD2],[OD OD]);
+% Omegas = subs(Omegas,d6,tankflow);
 
 ResistancePart = fooGraph.Phi*Omegas;
-HeightPart = (fooSim.Graph.Psi*(fooSim.NodeHeights))*(fooSim.rho*fooSim.g)/(10^5);
-PressurePart = (fooSim.Graph.I*(pt-0));
+HeightPart = (fooGraph.Psi*(fooSim.NodeHeights))*(fooSim.rho*fooSim.g)/(10^5);
+PressurePart = (fooGraph.I*(p-0));
 
 dqdt = fooSim.P*(-ResistancePart+HeightPart+PressurePart);
 
+jacobq = jacobian(dqdt,[q3 q7 d1 d5 d9 d8])
+jacobw = jacobian(dqdt,[w1 w2])
+
+dqdt = subs(dqdt,[w1 w2],[w w]);
+dqdt = subs(dqdt,[OD1 OD2],[OD OD]);
+dqdt = subs(dqdt,d8,tankflow);
 
 eqpoint = solve(dqdt == 0);
 q0 = struct2array(eqpoint);
-q0 = [q0(5:6) q0(1:3) 0 0]';
-syms q w OD
+pt = q0(4);
+q0 = [q0(5:6) q0(1:3) 0]';
 
-%Create d_omega wrt qn for chords
-for i=1:size(fooSim.r_C,1)
-r_q_taylor(i)= diff(fooSim.r_C{i},q);
-end
-%Create d_omega wrt qn for tree
-for i=1:size(fooSim.r_T,1)
-r_q_taylor(i+2)= diff(fooSim.r_T{i},q);
-end
+w = 66; w = 66;
+OD = 0.5; OD = 0.5;
 
-%Create d_omega wrt omega for chords
-for i=1:size(fooSim.r_C,1)
-r_w_taylor(i)= diff(fooSim.r_C{i},w);
-end
-%Create d_omega wrt omega for chords
-for i=1:size(fooSim.r_T,1)
-r_w_taylor(i+2)= diff(fooSim.r_T{i},w);
-end
+A = subs(jacobq,[OD1 OD2 q3 q7 d1 d5 d9 d8],[OD OD q0'])
+B = subs(jacobw,symvar(jacobw),[w w])
 
-w0 = 66;
-OD0 = 0.5;
-Q_n = fooSim.Q_n;
+eig(A)
 
-q_vector = Q_n*q0;
-OD_vector = [0 0 0 0 OD0 0 0 0 0 0  OD0 0 0 0];
-w_vector = zeros(14,1);
-w_vector(3,1) = w0; w_vector(end,1) = w0;
-
-
-for jj = 1:length(q0)
-    for i = 1:length(r_q_taylor)
-        r_q(i,jj) = subs(r_q_taylor(i),[q,OD,w],[q0(jj)*Q_n(i,jj),OD_vector(i),w_vector(i)]);
-    end
-end
-
-w_vector = zeros(14,2);
-w_vector(3,1) = w0; w_vector(end,2) = w0;
-
-for jj = 1:length(PumpIndex)
-    for i = 1:length(r_w_taylor)
-        r_w(i,jj) = subs(r_w_taylor(i),[q,OD,w],[q_vector(i),OD_vector(i),w_vector(i,jj)]);
-    end
-end
-
-r_q(:,end-1) = [];
-
-A = double(-fooSim.P*fooGraph.Phi*r_q)
-B = double(-fooSim.P*fooGraph.Phi*r_w)
-
-% for i = 1:length(ValveIndex)
-%   r_q_taylor(ValveIndex(i)) = subs(r_q_taylor(ValveIndex(i)),[OD],[OD_vector(ValveIndex(i))]);
-%  end
+% Just to check that f(x0) is actually 0
+[dqdt,pbar,pt_new] = fooSim.Model_TimeStep([w w],[OD OD],[q0(1) q0(2)],[q0(3) q0(4) q0(5) 0],q0(6),pt);
+double(dqdt)
 
 
 %%
