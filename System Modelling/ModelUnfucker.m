@@ -21,7 +21,7 @@ eta = 5*10^-5.*ones(length(PipeIndex),1); % Pipe roughness factors
 
 % Pump coefficients
 a2 = -[0.0355 0.0355]';
-a1 = [0.0004 0.0004]';
+a1 = [0.0004 0.0004]'.*0;
 a0 = [0.0001 0.0001]';
 
 Kv = ones(length(ValveIndex),1);
@@ -80,7 +80,7 @@ f_p = 2/(24*60); % Assumed pump frequency
 t = 0:ts:(10*60); % Time vector corresponding to 24 hours
 
 clear flow tankpres df d_t pt w1 OD1 pressures
-w1 = 50*ones(length(t),1);
+w1 = 66*ones(length(t),1);
 OD1 = 0.5*ones(length(t),1);
 qc = 0;
 df = [0;0]; 
@@ -159,5 +159,5 @@ PressurePart = (fooGraph.I*(pt-0));
 
 dqdt = fooSim.P*(-ResistancePart+HeightPart+PressurePart);
 
-eqpoint = solve(fooSim.P*(-ResistancePart+HeightPart+PressurePart) == 0)
+eqpoint = vpasolve(fooSim.P*(-ResistancePart+HeightPart+PressurePart) == 0)
 struct2array(eqpoint)

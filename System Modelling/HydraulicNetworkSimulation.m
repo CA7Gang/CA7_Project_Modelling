@@ -262,8 +262,8 @@ classdef HydraulicNetworkSimulation
                 tankstartindex = numel(obj.Graph.chords)+numel(obj.Graph.consumers)+numel(obj.Graph.producers)+1;
                 
                 % Get the new tank pressures
-%                 pt_new = pt_old - 0.000096*d_t; % Need to introduce code here to get the actual tank constant from the graph model
-                pt_new = pt_old - 0.0000096*d_t;
+                pt_new = pt_old - 0.000096*d_t; % Need to introduce code here to get the actual tank constant from the graph model
+%                 pt_new = pt_old - 0.0000096*d_t;
              end
             
             

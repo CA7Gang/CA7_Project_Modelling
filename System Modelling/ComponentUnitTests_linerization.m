@@ -23,7 +23,7 @@ eta = 5*10^-5.*ones(10,1); % Pipe roughness factors
 
 % Pump coefficients
 a2 = -[0.0355 0.0355]';
-a1 = [0.0004 0.0004]';
+a1 = [0.0004 0.0004]'*0;
 a0 = [0.0001 0.0001]';
 
 
@@ -81,7 +81,7 @@ H = [1	0	0	0	0	0	0	0	0	0	0	0	0	0;
 0	0	0	0	0	0	0	-1	0	0	1	-1	0	0;
 0	0	0	0	0	0	0	0	0	-1	0	1	-1	0;
 0	0	0	0	0	0	0	0	0	0	0	0	1	-1;
-0	0	0	0	0	0	0	0	0	0	0	0	0	1]
+0	0	0	0	0	0	0	0	0	0	0	0	0	1];
 
 
  
@@ -124,6 +124,7 @@ PressurePart = (fooSim.Graph.I*(pt-0));
 
 dqdt = fooSim.P*(-ResistancePart+HeightPart+PressurePart);
 
+
 eqpoint = solve(dqdt == 0);
 q0 = struct2array(eqpoint);
 q0 = [q0(5:6) q0(1:3) 0 0]';
@@ -152,17 +153,27 @@ OD0 = 0.5;
 Q_n = fooSim.Q_n;
 
 q_vector = Q_n*q0;
-w_vector = [zeros(1,2) w0 zeros(1,10) w0];
-OD_vector = [zeros(1,4) OD0 zeros(1,5) OD0 zeros(1,3)];
+OD_vector = [0 0 0 0 OD0 0 0 0 0 0  OD0 0 0 0];
+w_vector = zeros(14,1);
+w_vector(3,1) = w0; w_vector(end,1) = w0;
+
 
 for jj = 1:length(q0)
     for i = 1:length(r_q_taylor)
         r_q(i,jj) = subs(r_q_taylor(i),[q,OD,w],[q0(jj)*Q_n(i,jj),OD_vector(i),w_vector(i)]);
-        r_w(i,jj) = subs(r_w_taylor(i),[q,OD,w],[q0(jj)*Q_n(i,jj),OD_vector(i),w_vector(i)]);
     end
 end
+
+w_vector = zeros(14,2);
+w_vector(3,1) = w0; w_vector(end,2) = w0;
+
+for jj = 1:length(PumpIndex)
+    for i = 1:length(r_w_taylor)
+        r_w(i,jj) = subs(r_w_taylor(i),[q,OD,w],[q_vector(i),OD_vector(i),w_vector(i,jj)]);
+    end
+end
+
 r_q(:,end-1) = [];
-r_w(:,end-1) = [];
 
 A = double(-fooSim.P*fooGraph.Phi*r_q)
 B = double(-fooSim.P*fooGraph.Phi*r_w)
@@ -171,6 +182,8 @@ B = double(-fooSim.P*fooGraph.Phi*r_w)
 %   r_q_taylor(ValveIndex(i)) = subs(r_q_taylor(ValveIndex(i)),[OD],[OD_vector(ValveIndex(i))]);
 %  end
 
+
+%%
 
 % syms d1 d5 d8 d9 q3 q7 omega
 % qn = [q3 q7 d1 d5 d9 0 d8]';

@@ -21,7 +21,7 @@ eta = 5*10^-5.*ones(7,1); % Pipe roughness factors
 
 % Pump coefficients
 a2 = -[0.0355 0.0355]';
-a1 = [0.0004 0.0004]';
+a1 = [0.0004 0.0004]'*0;
 a0 = [0.0001 0.0001]';
 
 % Valve coefficients
@@ -96,13 +96,13 @@ ts = 0.025;
 
 f_p = 2/(24*60); % Assumed pump frequency
 
-t = 0:ts:(20*60); % Time vector corresponding to 24 hours
+t = 0:ts:(1*60); % Time vector corresponding to 24 hours
 % w = 50*(1+square(12*pi*f_p*t,50))/2+50*(1+square(12*pi*f_p*t,100))/2; % Pump waveforms
 % OD =(1+sin(pi*f_p*t+t(end)/2))/2; % Valve waveforms
 
 
 clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures
-w1 = 50*ones(length(t),1); w2 = 50*ones(length(t),1);
+w1 = 66*ones(length(t),1); w2 = 66*ones(length(t),1);
 % w1 = w; w2 = w; 
 % OD1 = OD; OD2 = OD;
 OD1 = 0.5*ones(length(t),1); OD2 = 0.5*ones(length(t),1);
@@ -188,7 +188,7 @@ plot(t,flowchange(end,:))
                 Omegas = [Omega_C;Omega_T];
 
                 syms w1 w2 OD1 OD2 d6 pt
-                w = 50; OD = 0.5; tankflow = 0;
+                w = 66; OD = 0.5; tankflow = 0;
                 
                 
 Omegas = subs(Omegas,[w1 w2],[w w]);
@@ -202,6 +202,84 @@ PressurePart = (fooGraph.I*(pt-0));
 dqdt = fooSim.P*(-ResistancePart+HeightPart+PressurePart);
 
 eqpoint = solve(dqdt == 0)
-struct2array(eqpoint)
-                
-                
+q0 = struct2array(eqpoint);
+pt = q0(4);
+q0 = [q0(5:6) q0(1:3) 0 0]';
+% q0(end-1) = -(q0(3)+q0(4)+q0(5)); % Mass conservation
+
+% Just to check that f(x0) is actually 0
+% [dqdt,pbar,pt_new] = fooSim.Model_TimeStep([w w],[OD OD],[q0(1) q0(2)],[q0(3) q0(4) q0(5) 0],q0(6),pt);
+% double(dqdt)
+
+
+syms q w OD p
+
+%Create d_omega wrt qn for chords
+for i=1:size(fooSim.r_C,1)
+r_q_taylor(i)= diff(fooSim.r_C{i}(q,w,OD),q);
+end
+%Create d_omega wrt qn for tree
+for i=1:size(fooSim.r_T,1)
+r_q_taylor(i+2)= diff(fooSim.r_T{i}(q,w,OD),q);
+end
+
+%Create d_omega wrt omega for chords
+for i=1:size(fooSim.r_C,1)
+r_w_taylor(i)= diff(fooSim.r_C{i}(q,w,OD),w);
+end
+%Create d_omega wrt omega for chords
+for i=1:size(fooSim.r_T,1)
+r_w_taylor(i+2)= diff(fooSim.r_T{i}(q,w,OD),w);
+end
+
+w0 = 66;
+OD0 = 0.5;
+Q_n = fooSim.Q_n;
+
+q_vector = Q_n*q0;
+OD_vector = [0 0 0 OD0 0 0 0 0 OD0 0 0];
+w_vector = zeros(11,1);
+w_vector(3,1) = w0; w_vector(end,1) = w0;
+
+q0(end-1) = [];
+Q_n(:,end-1) = [];
+
+clear r_q r_w A B
+
+% for jj = 1:length(q0)
+%     for i = 1:length(r_q_taylor)
+%         r_q(i,jj) = subs(r_q_taylor(i),[q,OD,w],[q0(jj)*Q_n(i,jj),OD_vector(i),w_vector(i)]);
+%     end
+% end
+
+for jj = 1:length(q0)
+    for i = 1:length(r_q_taylor)
+        r_q(i,jj) = subs(r_q_taylor(i),[q,OD,w],[q0(jj)*Q_n(i,jj),OD_vector(i),w_vector(i)]);
+    end
+end
+
+w_vector = zeros(11,2);
+w_vector(3,1) = w0; w_vector(end,2) = w0;
+
+for jj = 1:length(PumpIndex)
+    for i = 1:length(r_w_taylor)
+        r_w(i,jj) = subs(r_w_taylor(i),[q,OD,w],[q_vector(i),OD_vector(i),w_vector(i,jj)]);
+    end
+end
+
+
+A = double(-fooSim.P*fooGraph.Phi*r_q)
+B = double(-fooSim.P*fooGraph.Phi*r_w)
+              
+%%
+Asaruch = [-0.4146 0 -0.4169 28.6393 0 0 0;
+           0 -0.2409 -0.0219 0 -3.9529 0 -3.6672;
+           -0.1943 0.0050 -0.7858 28.6393 8.2352 0 -1.2224;
+           0.1206 0 0.4169 -38.0979 0 0 -5.6719;
+           0.0806 0.0619 -0.0968 -0.1361 -24.0953 -0.1361 -2.4448;
+           -0.0918 -0.1517 -0.1958 8.8483 3.7352 -0.6104 20.6828]
+       
+Asaruch(:,end) = []
+       
+MatrixWeShouldGet = pinv(-fooSim.P*fooGraph.Phi)*Asaruch
+           
