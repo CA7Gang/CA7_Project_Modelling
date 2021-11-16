@@ -14,7 +14,7 @@ Bc = [-1 -1];
 
 C = 1;
 
-ts = 10;
+ts = 1;
 fs = 1/ts;
 
 nomsys = ss(A,Bp,C,[]);
