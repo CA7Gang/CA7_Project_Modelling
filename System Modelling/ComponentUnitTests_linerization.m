@@ -98,7 +98,6 @@ PumpEdges = [1;14];
 ValveEdges = [4;11];
 
 fooSim = HydraulicNetworkSimulation(fooGraph,Components,PumpEdges,ValveEdges,Inertias,NodeHeights,p0,rho,g);
-%%
 
 %%
 
@@ -129,8 +128,8 @@ PressurePart = (fooGraph.I*(p-0));
 
 dqdt = fooSim.P*(-ResistancePart+HeightPart+PressurePart);
 
-jacobq = jacobian(dqdt,[q3 q7 d1 d5 d9 d8])
-jacobw = jacobian(dqdt,[w1 w2])
+jacobq = jacobian(dqdt,[q3 q7 d1 d5 d9 d8]);
+jacobw = jacobian(dqdt,[w1 w2]);
 
 dqdt = subs(dqdt,[w1 w2],[w w]);
 dqdt = subs(dqdt,[OD1 OD2],[OD OD]);
@@ -144,14 +143,130 @@ q0 = [q0(5:6) q0(1:3) 0]';
 w = 66; w = 66;
 OD = 0.5; OD = 0.5;
 
-A = subs(jacobq,[OD1 OD2 q3 q7 d1 d5 d9 d8],[OD OD q0'])
-B = subs(jacobw,symvar(jacobw),[w w])
+A = subs(jacobq,[OD1 OD2 q3 q7 d1 d5 d9 d8],[OD OD q0']);
+B = subs(jacobw,symvar(jacobw),[w w]);
 
 eig(A)
 
 % Just to check that f(x0) is actually 0
 [dqdt,pbar,pt_new] = fooSim.Model_TimeStep([w w],[OD OD],[q0(1) q0(2)],[q0(3) q0(4) q0(5) 0],q0(6),pt);
 double(dqdt)
+
+%% simulering
+A = double(A);
+B = double(B);
+C = [0 0 -1 -1 -1 -1];
+
+ts = 0.025;
+
+LinSys = ss(A,B,C,[]);
+LinSys = c2d(LinSys,ts,'Tustin');
+
+
+
+f_p = 2/(24*10); % Assumed pump frequency
+
+t = 0:ts:(2*60); % Time vector corresponding to 24 hours
+% w = 50*(1+square(12*pi*f_p*t,50))/2+50*(1+square(12*pi*f_p*t,100))/2; % Pump waveforms
+% OD =(1+sin(pi*f_p*t+t(end)/2))/2; % Valve waveforms
+
+
+clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures q_lin pt_lin flowchange LinPump2
+q0 = double(q0);
+w1 = 66*ones(length(t),1); w2 = 66*ones(length(t),1);
+% w1 = w; w2 = w; 
+% OD1 = OD; OD2 = OD;
+OD1 = 0.5*ones(length(t),1); OD2 = 0.5*ones(length(t),1);
+qc = [0;0];
+% qc = q0(1:2);
+% df = [q0(3:end-1);0];
+df = [0;0;0;0]; 
+pt =0*4*rho*g/10^5;
+pt_lin = 0;
+% d_t = 0;
+d_t = 0;
+
+w0 = 66;
+
+q_lin(:,1) = zeros(6,1);
+
+for ii = 1:length(t)
+    [dqdt,pbar,pt_new] = fooSim.Model_TimeStep([w1(ii) w2(ii)],[OD1(ii) OD2(ii)],[qc(1) qc(2)],[df(1) df(2) df(3) df(4)],d_t,pt);
+    qc(1) = qc(1)+dqdt(1)*ts;
+    qc(2) = qc(2)+dqdt(2)*ts;
+    df(1) = df(1)+dqdt(3)*ts; 
+    df(2) = df(2)+dqdt(4)*ts; 
+    df(3) = df(3)+dqdt(5)*ts; 
+    d_t = d_t+dqdt(end)*ts;
+
+    % Must obey basic mass conservation if no leaks are assumed
+    masscon = -cumsum([df(1:3);d_t]);
+    df(4) = masscon(end);
+    
+    flowchange(:,ii) = dqdt;
+
+    pt = pt_new;
+    flow(:,ii) = [qc;df;d_t];
+    flowL = [qc;df(1:3);d_t];
+    pressures(:,ii) = double(pbar);
+    tankpres(ii) = pt;
+    
+    q_lin(:,ii+1) = LinSys.A*(flowL-q0)+LinSys.B*([w1(ii);w2(ii)]-w0);
+    pt_lin(ii+1) = pt_lin(ii)-0.000096*q_lin(end,ii);
+end
+
+% Plots
+
+q_lin = q_lin+q0;
+
+close all
+
+figure()
+subplot(2,2,1)
+plot(t,flow(1:2,:))
+hold on
+plot(t,q_lin(1:2,1:end-1),'--')
+hold off
+legend('Chord 1','Chord 2','LinChord1','LinChord2')
+subplot(2,2,2)
+plot(t,flow(3,:))
+hold on
+plot(t,flow(6,:))
+plot(t,q_lin(3,1:end-1),'--')
+hold off
+legend('Pump 1','Pump 2','LinPump1')
+subplot(2,2,3)
+plot(t,flow(4:5,:))
+hold on
+plot(t,q_lin(4:5,1:end-1),'--')
+hold off
+legend('Consumer 1','Consumer 2','LinConsumer1','LinConsumer2')
+subplot(2,2,4)
+plot(t,flow(end,:))
+hold on
+plot(t,q_lin(end,1:end-1),'--r')
+hold off
+legend('Tank','Linearized Tank')
+figure()
+plot(t,pressures)
+figure()
+subplot(3,1,1)
+plot(t,tankpres)
+hold on
+plot(t,pt_lin(1:end-1),'--')
+legend('Tank Pressure','Linearized Tank Pressure')
+subplot(3,1,2)
+plot(t,OD1)
+hold on
+plot(t,OD2)
+hold off
+legend('Valve 1','Valve 2')
+subplot(3,1,3)
+plot(t,w1)
+hold on
+plot(t,w2)
+hold off
+legend('Pump 1','Pump 2')
 
 
 %%
