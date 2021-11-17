@@ -17,9 +17,11 @@ Bp = [T T];
 
 Bc = [T T];
 
+
 C = 1;
 
 
+dNom = ss(A,2*Bp,C,[],ts);
 dSys = ss(A,Bp,C,[],ts);
 dCon = ss(A,Bc,C,[],ts);
 
@@ -67,16 +69,16 @@ dU(1:2,1) = 0; % Control input delta
 x_real = zeros(n,1);
 refval(1) = 1;
 uLQR(1:2,1) = 0;
-t_end = 2*3600;
+t_end = 4*3600;
 yLQR(:,1) = [0;0];                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
 t = 0:ts:(t_end-ts);
 
-% e = -1/(tau*ts)*cos(2*pi*1/max(t)*t);
+% e = -1+0.5*sin(2*pi*(1/12)/max(t)*t);
 % dc = [e;e];
 
 t = seconds(t);
 
-dc = -[1/(tau*ts);1/(tau*ts)].*ones(2,length(t));
+dc = -0.0001.*ones(2,length(t));
 
 plot(dc(1,:))
 
@@ -92,20 +94,20 @@ for ii = 1:length(t)-1
    yLQR(ii+1) = Cv*x(:,ii+1);
  
  
-   x_real(:,ii+1) = dSys.A*x_real(:,ii)+dSys.B*dU(:,ii+1);
-   y_real(ii+1) = dSys.C*(x_real(:,ii+1)+(dCon.B*dc(:,ii)));
+   x_real(:,ii+1) = dSys.A*x_real(:,ii)+dNom.B*dU(:,ii+1);
+   y_real(ii+1) = dSys.C*(x_real(:,ii+1));
    x(end,ii+1) = y_real(ii+1)-refval(ii);
    
    uLQR(:,ii+1) = -K*x(:,ii+1);
    
-   if (ii > ceil(T/2))
-
-       refval(ii+1) = 2;
-   else
-       refval(ii+1) = refval(ii);
-   end
+%    if (ii > ceil(T/2))
+% 
+%        refval(ii+1) = 2;
+%    else
+%        refval(ii+1) = refval(ii);
+%    end
    
-%     refval(ii+1) = refval(ii);
+    refval(ii+1) = refval(ii);
 end
 
 %%
