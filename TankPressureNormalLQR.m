@@ -56,7 +56,7 @@ pObs = 0.2*eig(Ai-Bi*K);
 rank(ctrb(Ai,Bi))
 
 [Ai_bar, Bi_bar, Ci_bar, T, k] = ctrbf(Ai,Bi,Ci);
-n_uc = size(Ai, 1) - sum(k); % Number of uncontrollable modes is 8 - 6 = 2
+n_uc = size(Ai, 1) - sum(k); % Number of uncontrollable modes
 Ai_uc = Ai_bar(1:n_uc, 1:n_uc)
 
 %%
