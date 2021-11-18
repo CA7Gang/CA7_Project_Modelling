@@ -21,7 +21,7 @@ Bc = [T T];
 C = 1;
 
 
-dNom = ss(A,2*Bp,C,[],ts);
+dNom = ss(A,Bp,C,[],ts);
 dSys = ss(A,Bp,C,[],ts);
 dCon = ss(A,Bc,C,[],ts);
 
@@ -44,14 +44,10 @@ VSys = ss(Av,Bv,Cv,[],ts);
 % Make an LQR gain matrix
 
 Q = Cv'*Cv; % Reference deviation cost
-Qnom = C'*C;
 % Q = 0.01*eye(2,2);
-R = 0.1*eye(m,m); % Actuation cost
+R = eye(m,m); % Actuation cost
 
 [K,P,e] = lqr(VSys,Q,R);
-[Kn,Pn,en] = lqr(dSys,Qnom,R);
-
-Kff = inv(R)*dSys.B'*inv(dSys.A-Pn*dSys.B/R*dSys.B')*Pn*dSys.B
 
 CLSysV = ss(Av-Bv*K,Bv,Cv,[],ts);
 
@@ -75,18 +71,16 @@ dU(1:2,1) = 0; % Control input delta
 x_real = zeros(n,1);
 refval(1) = 1;
 uLQR(1:2,1) = 0;
-t_end = 4*3600;
+t_end = 12*3600;
 yLQR(:,1) = [0;0];                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
 t = 0:ts:(t_end-ts);
 
-e = -2+0.5*sin(2*pi*12/max(t)*t);
+e = -2+0.5*sin(2*pi*0.5/max(t)*t);
 dc = [e;e];
 
 % dc = -1*ones(2,length(t));
 
-dist = dSys.B*dc;
-
-plot(dist(1,:))
+plot(dc(1,:))
 
 t = seconds(t);
 
@@ -95,72 +89,88 @@ T = ceil(length(t));
 %%
 
 for ii = 1:length(t)-1   
-    
+ 
    dU(:,ii+1) = uLQR(:,ii)+dU(:,ii);  
    
-   u(:,ii) = dU(:,ii+1)-dc(:,ii); % Just cancel the fucking disturbance out 4Head
+   u(:,ii) = dU(:,ii+1)-pinv(dSys.B)*dSys.B*dc(:,ii); % Just cancel the fucking disturbance out 4Head
+   
+   for jj = 1:2
+       if u(jj,ii) < 0
+           u(jj,ii) = 0;
+       elseif u(jj,ii) > 3.5
+           u(jj,ii) = 3.5;
+       end
+   end
     
    x(:,ii+1) = Av*x(:,ii)+Bv*uLQR(:,ii); 
    yLQR(ii+1) = Cv*x(:,ii+1);
  
  
-   x_real(:,ii+1) = dSys.A*x_real(:,ii)+dSys.B*u(:,ii)+dSys.B*dc(:,ii);
-   y_real(ii+1) = dSys.C*(x_real(:,ii+1));
+   x_real(:,ii+1) = dSys.A*x_real(:,ii)+dNom.B*u(:,ii)+dNom.B*dc(:,ii);
+   y_real(ii+1) = dSys.C*(x_real(:,ii+1))-0.1;
    x(end,ii+1) = y_real(ii+1)-refval(ii);
    
    uLQR(:,ii+1) = -K*(x(:,ii+1));
    
    
-%    if (ii > ceil(T/2))
-% 
-%        refval(ii+1) = 2;
-%    else
-%        refval(ii+1) = refval(ii);
-%    end
+   if (ii > ceil(T/2))
+
+       refval(ii+1) = 2;
+   else
+       refval(ii+1) = refval(ii);
+   end
    
-    refval(ii+1) = refval(ii);
+%     refval(ii+1) = refval(ii);
 end
+
+%% Save stuff to an appropriate file
+
+% save('NomSysData.mat','x','uLQR','u','y_real','refval','dc','t')
+% save('HalfNomSysData.mat','x','uLQR','u','y_real','refval','dc','t')
+% save('DoubleNomSysData.mat','x','uLQR','u','y_real','refval','dc','t')
+save('OutDistNomSysData.mat','x','uLQR','u','y_real','refval','dc','t')
+
 
 %%
 
-t = hours(t);
-
-figure(2)
-subplot(2,2,1)
-ylabel('Output')
-xlabel('Samples')
-plot(t,x(1,:))
-hold on
-plot(t,x(2,:))
-title('Velocity-form system')
-legend('Pressure change','Tracking error','interpreter','latex')
-xlabel('Time [hr]')
-
-subplot(2,2,2)
-plot(t,uLQR(1,:))
-hold on
-plot(t,uLQR(2,:))
-hold off
-title('Differential control input')
-xlabel('Time [hr]')
-
-subplot(2,2,3)
-ylabel('Output')
-xlabel('Samples')
-plot(t,y_real)
-hold on
-plot(t,refval,'--r')
-hold off
-title('Real System')
-legend('Process value','Reference','interpreter','latex')
-xlabel('Time [hr]')
-
-subplot(2,2,4)
-plot(t(1:end-1),u(1,:),'b')
-hold on
-plot(t(1:end-1),u(2,:),'r')
-plot(t(1:end-1),dc(1,1:end-1),'--k')
-plot(t(1:end-1),dc(2,1:end-1),'--m')
-hold off
-title('Full control input')
-xlabel('Time [hr]')
+% t = hours(t);
+% 
+% figure(2)
+% subplot(2,2,1)
+% ylabel('Output')
+% xlabel('Samples')
+% plot(t,x(1,:))
+% hold on
+% plot(t,x(2,:))
+% title('Velocity-form system')
+% legend('Pressure change','Tracking error','interpreter','latex')
+% xlabel('Time [hr]')
+% 
+% subplot(2,2,2)
+% plot(t,uLQR(1,:))
+% hold on
+% plot(t,uLQR(2,:))
+% hold off
+% title('Differential control input')
+% xlabel('Time [hr]')
+% 
+% subplot(2,2,3)
+% ylabel('Output')
+% xlabel('Samples')
+% plot(t,y_real)
+% hold on
+% plot(t,refval,'--r')
+% hold off
+% title('Real System')
+% legend('Pressure','Reference','interpreter','latex')
+% xlabel('Time [hr]')
+% 
+% subplot(2,2,4)
+% plot(t(1:end-1),u(1,:),'b')
+% hold on
+% plot(t(1:end-1),u(2,:),'r')
+% plot(t(1:end-1),dc(1,1:end-1),'--k')
+% plot(t(1:end-1),dc(2,1:end-1),'--m')
+% hold off
+% title('Full control input')
+% xlabel('Time [hr]')

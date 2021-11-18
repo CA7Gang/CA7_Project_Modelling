@@ -162,25 +162,27 @@ ts = 0.025;
 LinSys = ss(A,B,C,[]);
 LinSys = c2d(LinSys,ts,'Tustin');
 
-
+clear t
 
 f_p = 2/(24*10); % Assumed pump frequency
 
-t = 0:ts:(2*60); % Time vector corresponding to 24 hours
+t = 0:ts:(5*60)-ts; % Time vector corresponding to 24 hours
 % w = 50*(1+square(12*pi*f_p*t,50))/2+50*(1+square(12*pi*f_p*t,100))/2; % Pump waveforms
 % OD =(1+sin(pi*f_p*t+t(end)/2))/2; % Valve waveforms
 
 
-clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures q_lin pt_lin flowchange LinPump2
+clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures q_lin pt_lin flowchange linpump
 q0 = double(q0);
-w1 = 66*ones(length(t),1); w2 = 66*ones(length(t),1);
+w1 = 40*ones(length(t),1); w2 = 85*ones(length(t),1);
 % w1 = w; w2 = w; 
 % OD1 = OD; OD2 = OD;
-OD1 = 0.5*ones(length(t),1); OD2 = 0.5*ones(length(t),1);
-qc = [0;0];
+OD1 = 0.4*ones(length(t),1); OD2 = 0.66*ones(length(t),1);
+% qc = [0;0];
+qc = randn(2,1);
 % qc = q0(1:2);
 % df = [q0(3:end-1);0];
-df = [0;0;0;0]; 
+% df = [0;0;0;0]; 
+df = randn(4,1);
 pt =0*4*rho*g/10^5;
 pt_lin = 0;
 % d_t = 0;
@@ -188,7 +190,7 @@ d_t = 0;
 
 w0 = 66;
 
-q_lin(:,1) = zeros(6,1);
+q_lin(:,1) = randn(6,1);
 
 for ii = 1:length(t)
     [dqdt,pbar,pt_new] = fooSim.Model_TimeStep([w1(ii) w2(ii)],[OD1(ii) OD2(ii)],[qc(1) qc(2)],[df(1) df(2) df(3) df(4)],d_t,pt);
@@ -202,8 +204,6 @@ for ii = 1:length(t)
     % Must obey basic mass conservation if no leaks are assumed
     masscon = -cumsum([df(1:3);d_t]);
     df(4) = masscon(end);
-    
-    flowchange(:,ii) = dqdt;
 
     pt = pt_new;
     flow(:,ii) = [qc;df;d_t];
@@ -213,63 +213,155 @@ for ii = 1:length(t)
     
     q_lin(:,ii+1) = LinSys.A*(flowL-q0)+LinSys.B*([w1(ii);w2(ii)]-w0);
     pt_lin(ii+1) = pt_lin(ii)-0.000096*q_lin(end,ii);
+    
 end
-
-% Plots
 
 q_lin = q_lin+q0;
 
+for ii = 1:length(q_lin)
+    masscon = cumsum(q_lin(3:end,ii));
+    linpump(ii) = -(masscon(end));
+end
+
+t = seconds(t);
+t = minutes(t);
+%% Plots
+
+
+
 close all
 
-figure()
+figure(1)
 subplot(2,2,1)
-plot(t,flow(1:2,:))
+plot(t,flow(1,:),'-b')
 hold on
-plot(t,q_lin(1:2,1:end-1),'--')
+plot(t,flow(2,:),'-k')
+plot(t,q_lin(1,1:end-1),'-.r')
+plot(t,q_lin(2,1:end-1),'-.g')
 hold off
-legend('Chord 1','Chord 2','LinChord1','LinChord2')
+legend('Chord 1','Chord 2','Linearised Chord 1','Linearised Chord 2','Interpreter','latex','Location','best')
+title('Chord Flows','interpreter','latex')
+xlabel('Time [min]','Interpreter','latex')
+xlim([0 5])
+ylabel('$q$ [$\frac{m^3}{hr}$]','Interpreter','latex')
+FlipMyFuckingLabel(gca)
+
+
 subplot(2,2,2)
-plot(t,flow(3,:))
+plot(t,flow(3,:),'-b')
 hold on
-plot(t,flow(6,:))
-plot(t,q_lin(3,1:end-1),'--')
+plot(t,flow(6,:),'-k')
+plot(t,q_lin(3,1:end-1),'-.r')
+plot(t,linpump(1:end-1),'-.g')
 hold off
-legend('Pump 1','Pump 2','LinPump1')
+legend('Pump 1','Pump 2','Linearised Pump 1', 'Linearised Pump 2','Interpreter','latex','Location','best')
+title('Pump Flows','interpreter','latex')
+xlabel('Time [min]','Interpreter','latex')
+xlim([0 5])
+ylabel('$q$ [$\frac{m^3}{hr}$]','Interpreter','latex')
+FlipMyFuckingLabel(gca)
+
 subplot(2,2,3)
-plot(t,flow(4:5,:))
+plot(t,flow(4,:),'-b')
 hold on
-plot(t,q_lin(4:5,1:end-1),'--')
+plot(t,flow(5,:),'-k')
+plot(t,q_lin(4,1:end-1),'-.r')
+plot(t,q_lin(5,1:end-1),'-.g')
 hold off
-legend('Consumer 1','Consumer 2','LinConsumer1','LinConsumer2')
+legend('Consumer 1','Consumer 2','Linearised Consumer 1','Linearised Consumer 2','Interpreter','latex','Location','best')
+title('Consumer Flows','interpreter','latex')
+xlabel('Time [min]','Interpreter','latex')
+xlim([0 5])
+ylabel('$q$ [$\frac{m^3}{hr}$]','Interpreter','latex')
+FlipMyFuckingLabel(gca)
+
+
 subplot(2,2,4)
 plot(t,flow(end,:))
 hold on
-plot(t,q_lin(end,1:end-1),'--r')
+plot(t,q_lin(end,1:end-1),'-.r')
 hold off
-legend('Tank','Linearized Tank')
-figure()
-plot(t,pressures)
-figure()
+legend('Tank Flow','Linearised Tank Flow','Interpreter','latex','Location','best')
+title('Tank Flows','interpreter','latex')
+xlabel('Time [min]','Interpreter','latex')
+xlim([0 5])
+ylabel('$q$ [$\frac{m^3}{hr}$]','Interpreter','latex')
+FlipMyFuckingLabel(gca)
+
+% figure()
+% plot(t,pressures)
+
+figure(2)
+
 subplot(3,1,1)
 plot(t,tankpres)
 hold on
-plot(t,pt_lin(1:end-1),'--')
-legend('Tank Pressure','Linearized Tank Pressure')
+plot(t,pt_lin(1:end-1),'-.r')
+legend('Tank Pressure','Linearised Tank Pressure','Interpreter','latex','Location','best')
+title('Tank Pressure','Interpreter','Latex')
+xlabel('Time [min]','Interpreter','latex')
+xlim([0 5])
+ylabel('$p_\tau$ [bar]','Interpreter','latex')
+FlipMyFuckingLabel(gca)
+
+
 subplot(3,1,2)
 plot(t,OD1)
 hold on
-plot(t,OD2)
+plot(t,OD2,'-.r')
 hold off
-legend('Valve 1','Valve 2')
+title('Valves','Interpreter','Latex')
+legend('Valve 1','Valve 2','Interpreter','latex','Location','best')
+xlabel('Time [min]','Interpreter','latex')
+xlim([0 5])
+ylabel('$OD$ [$\frac{OD}{OD_{max}}$]','Interpreter','latex')
+FlipMyFuckingLabel(gca)
+
 subplot(3,1,3)
 plot(t,w1)
 hold on
-plot(t,w2)
+plot(t,w2,'-.r')
 hold off
-legend('Pump 1','Pump 2')
+legend('Pump 1','Pump 2','Interpreter','latex','Location','best')
+title('Pumps','Interpreter','Latex')
+xlabel('Time [min]','Interpreter','latex')
+xlim([0 5])
+ylabel('$\omega$ [PWM]','Interpreter','latex')
+FlipMyFuckingLabel(gca)
+
+%% Export the figures cabron
+
+exportgraphics(figure(1),'DifferentOPFlows.pdf','BackgroundColor','none','ContentType','vector');
+exportgraphics(figure(2),'DifferentOPPressure.pdf','BackgroundColor','none','ContentType','vector');
 
 
-%%
+%% Export subfigures if you really want to
+
+% axes1 = findall(figure(1),'type','axes');
+% axes2 = findall(figure(2),'type','axes');
+% 
+% for ii = 1:length(axes1)
+%     strname = axes1(ii).Title.String;
+%     strname(strname == ' ') = [];
+%     exportgraphics(axes1(ii),strcat(strname,'.pdf'),'BackgroundColor','none','ContentType','vector');
+% end
+% 
+% for ii = 1:length(axes2)
+%     strname = axes2(ii).Title.String;
+%     strname(strname == ' ') = [];
+%     exportgraphics(axes2(ii),strcat(strname,'.pdf'),'BackgroundColor','none','ContentType','vector');
+% end
+
+
+%% Functions and unused code
+
+function FlipMyFuckingLabel(gca)
+    ylh = get(gca,'ylabel');
+    gyl = get(ylh);                                                         % Object Information
+    ylp = get(ylh, 'Position');
+    set(ylh, 'Rotation',0, 'Position',ylp, 'VerticalAlignment','middle', 'HorizontalAlignment','right')
+    gca.YLabel.PositionMode='auto';
+end
 
 % syms d1 d5 d8 d9 q3 q7 omega
 % qn = [q3 q7 d1 d5 d9 0 d8]';
