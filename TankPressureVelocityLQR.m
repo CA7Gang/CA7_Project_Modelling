@@ -6,7 +6,7 @@ close all
 
 tau = 0.000096; % Absolute value of time constant
 
-ts = 100;
+ts = 25;
 fs = 1/ts;
 
 T = tau*ts; % Euler discretization of the time constant
