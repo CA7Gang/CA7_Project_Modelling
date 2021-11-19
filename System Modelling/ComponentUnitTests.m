@@ -135,8 +135,13 @@ q0 = [q0(5:6) q0(1:3) 0]';
 w = 66; w = 66;
 OD = 0.5; OD = 0.5;
 
-A = subs(jacobq,[OD1 OD2 q2 q6 d1 d4 d7 d6],[OD OD q0'])
-B = subs(jacobw,symvar(jacobw),[w w])
+if a1(1) == 0
+    A = subs(jacobq,[OD1 OD2 q2 q6 d1 d4 d7 d6],[OD OD q0'])
+    B = subs(jacobw,symvar(jacobw),[w w])
+else
+    A = subs(jacobq,[OD1 OD2 q2 q6 d1 d4 d7 d6 w1 w2],[OD OD q0' w w]);
+    B = subs(jacobw,symvar(jacobw),[q0(3:end)' w w]);
+end
 
 eig(A)
 
@@ -181,9 +186,11 @@ w1 = 66*ones(length(t),1); w2 = 66*ones(length(t),1);
 % OD1 = OD; OD2 = OD;
 OD1 = 0.5*ones(length(t),1); OD2 = 0.5*ones(length(t),1);
 qc = [0;0];
+% qc = randn(2,1);
 % qc = q0(1:2);
 % df = [q0(3:end-1);0];
 df = [0;0;0;0]; 
+% df = randn(4,1);
 pt =0*4*rho*g/10^5;
 pt_lin = 0;
 % d_t = 0;

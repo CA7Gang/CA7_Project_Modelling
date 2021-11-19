@@ -23,7 +23,7 @@ eta = 5*10^-5.*ones(10,1); % Pipe roughness factors
 
 % Pump coefficients
 a2 = -[0.0355 0.0355]';
-a1 = [0.0004 0.0004]'*0;
+a1 = [0.0004 0.0004]';
 a0 = [0.0001 0.0001]';
 
 
@@ -143,8 +143,13 @@ q0 = [q0(5:6) q0(1:3) 0]';
 w = 66; w = 66;
 OD = 0.5; OD = 0.5;
 
-A = subs(jacobq,[OD1 OD2 q3 q7 d1 d5 d9 d8],[OD OD q0']);
-B = subs(jacobw,symvar(jacobw),[w w]);
+if a1(1) == 0
+    A = subs(jacobq,[OD1 OD2 q3 q7 d1 d5 d9 d8],[OD OD q0']);
+    B = subs(jacobw,symvar(jacobw),[w w]);
+else
+    A = subs(jacobq,[OD1 OD2 q3 q7 d1 d5 d9 d8 w1 w2],[OD OD q0' w w]);
+    B = subs(jacobw,symvar(jacobw),[q0(3:end)' w w]);
+end
 
 eig(A)
 
@@ -173,10 +178,10 @@ t = 0:ts:(5*60)-ts; % Time vector corresponding to 24 hours
 
 clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures q_lin pt_lin flowchange linpump
 q0 = double(q0);
-w1 = 40*ones(length(t),1); w2 = 85*ones(length(t),1);
+w1 = 66*ones(length(t),1); w2 = 66*ones(length(t),1);
 % w1 = w; w2 = w; 
 % OD1 = OD; OD2 = OD;
-OD1 = 0.4*ones(length(t),1); OD2 = 0.66*ones(length(t),1);
+OD1 = 0.5*ones(length(t),1); OD2 = 0.5*ones(length(t),1);
 % qc = [0;0];
 qc = randn(2,1);
 % qc = q0(1:2);
@@ -331,8 +336,8 @@ FlipMyFuckingLabel(gca)
 
 %% Export the figures cabron
 
-exportgraphics(figure(1),'DifferentOPFlows.pdf','BackgroundColor','none','ContentType','vector');
-exportgraphics(figure(2),'DifferentOPPressure.pdf','BackgroundColor','none','ContentType','vector');
+% exportgraphics(figure(1),'DifferentOPFlows.pdf','BackgroundColor','none','ContentType','vector');
+% exportgraphics(figure(2),'DifferentOPPressure.pdf','BackgroundColor','none','ContentType','vector');
 
 
 %% Export subfigures if you really want to
