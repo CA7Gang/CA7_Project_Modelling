@@ -2,6 +2,41 @@ clc
 clear all
 close all
 
+% Fast dynamics
+
+A=[-0.3236   -0.0406   -0.1577   10.0671   -0.7623    0.0000;
+   -0.1429   -0.3189    0.2176   -1.3489   -6.0984         0;
+   -0.0275    0.0687   -0.3968    7.1758    1.5246         0;
+    0.1089    0.0687    0.0196  -20.2792    1.5246   -0.0000;
+   -0.0551   -0.0443   -0.0272    1.4425  -15.3466   -0.0999;
+    0.1486    0.0817   -0.2877   11.1436    8.2419   -0.4174];
+
+B=[0.0982    0.0000;
+    0.0078         0;
+    0.1147         0;
+   -0.0408         0;
+   -0.0087   -0.0193;
+   -0.0651   -0.0715];
+
+C = [0 0 1 0 0 0;
+	0 0 -1 -1 -1 -1];
+
+D = zeros(2,2);
+
+s = tf('s');
+
+[num,den] = pade(4,1);
+
+[Ad,Bd,Cd,Dd] = tf2ss(num,den);
+
+FastSys = ss(A,B,C,D);
+
+p = eig(FastSys.A);
+
+L = place(FastSys.A',FastSys.C',4*p);
+
+
+
 % Define nominal system and system with modelling error, then discretize
 
 tau = 0.000096; % Absolute value of time constant
@@ -51,11 +86,7 @@ R = eye(m,m); % Actuation cost
 
 CLSysV = ss(Av-Bv*K,Bv,Cv,[],ts);
 
-% step(CLSysV,100)
-
-pObs = 0.2*eig(Av-Bv*K);
-
-L = place(Av',Cv',[0.1 0.4]);
+% step(CLSysV,100) 
 
 rank(ctrb(Av,Bv))
 
