@@ -39,7 +39,7 @@ sysKf = ss(A-kf*C,[B kf],eye(6),0*[B kf])
 
 %% simulering af ulineært system
 
-ts = 0.01;
+ts = 0.025;
 
 
 
@@ -47,12 +47,12 @@ f_p = 2/(24*10); % Assumed pump frequency
 
 
 
-t = 0:ts:(5*60)-ts; % Time vector corresponding to 24 hours
+t = 0:ts:(2*60)-ts; % Time vector corresponding to 24 hours
 % w = 50*(1+square(12*pi*f_p*t,50))/2+50*(1+square(12*pi*f_p*t,100))/2; % Pump waveforms
 % OD =(1+sin(pi*f_p*t+t(end)/2))/2; % Valve waveforms
 
 
-clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures q_lin pt_lin flowchange linpump
+clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures q_lin pt_lin flowchange linpump x x_true
 w1 = 66*ones(length(t),1); w2 = 66*ones(length(t),1);
 % w1 = w; w2 = w; 
 % OD1 = OD; OD2 = OD;
@@ -67,14 +67,15 @@ pt =0*4*rho*g/10^5;
 % d_t = 0;
 d_t = 0;
 
+w = 80;
 w0 = 66;
 
-LinSys = ss(A,B,C,[]);
-LinSys = c2d(LinSys,ts,'Tustin');
-u = [w0;w0];
-[kalmf, L, P] = kalman(LinSys,1,1,0);
-x = zeros(6,1) 
-q0 = double(q0)
+% LinSys = ss(A,B,C,[]);
+% LinSys = c2d(LinSys,ts,'Tustin');
+u = [w-w0;w-w0];
+[kalmf, L, P] = kalman(LinSys,100,1,0);
+x = zeros(6,1) ;
+q0 = double(q0);
 
 for ii = 1:length(t)
     [dqdt,pbar,pt_new] = fooSim.Model_TimeStep([w1(ii) w2(ii)],[OD1(ii) OD2(ii)],[qc(1) qc(2)],[df(1) df(2) df(3) df(4)],d_t,pt);
@@ -91,24 +92,28 @@ for ii = 1:length(t)
 
     pt = pt_new;
     flow(:,ii) = [qc;df;d_t];
-    flowL(:,ii) = [qc;df(1:3);d_t];
+    flowL = [qc;df(1:3);d_t]
     pressures(:,ii) = double(pbar);
     tankpres(ii) = pt;
 
     % Subtracts the eqpoint flows, to get the rael flow
     x_true(:,ii) = [flow(3,ii)-q0(3);flow(6,ii)-sum(q0(3:6))]';
-    
+
+
 if ii == 1
     %estimate states
-    x(:,ii) = LinSys.B*u;
+    x(:,ii) = LinSys.A*q0+LinSys.B*u
 else
     %estimate states
     x(:,ii) = LinSys.A*x(:,ii-1)+LinSys.B*u;
+    (flowL-q0)-x(:,ii)-q0;
 end
     z(:,ii) = LinSys.C*x(:,ii);
     %estimate observation
+
     
     x(:,ii) = x(:,ii)+L*(x_true(:,ii)-z(:,ii));
+
 
 
 %
@@ -135,9 +140,13 @@ end
 % t = seconds(t);
 % t = minutes(t);
 %% plot
-
+subplot(2,1,1)
 plot(t,flow) % simuleret resulatat
 legend('chord1','chord2','pump1','cunsumer1','consumer2','pump2','tankflow')
+subplot(2,1,2)
+plot(t,x+q0)
+legend('chord1','chord2','pump1','cunsumer1','consumer2','tankflow')
+
 
 %% kalman filter
 
@@ -159,11 +168,12 @@ uNoise = randn(2,length(t));
 % dette skal laves ordenligt!!! Hvad skal vores kontrol signal være for at
 % få pumpen til at køre 66% ? er det bare 66? eller skal det være noget
 % helt andet?
-% u = [0;0]*t; 
+u = [0;0]*t; 
 % u(100:120) = 66;
 % u(1500:end) = 66;
 
-u = ones(length(t),2)*66;
+w = 66
+u = ones(length(t),2)*(w-w0);
 
 uAug = [u'; vd*vd*uDist; uNoise];
 
