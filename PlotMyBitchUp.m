@@ -23,7 +23,7 @@ plot(t,Half.x(1,:),'color',[0 0.75 0])
 plot(t,Double.x(1,:),'-m')
 plot(t,Out.x(1,:),'-k')
 hold off
-legend('Nominal','$200\%$ nominal','$50\%$ nominal','Output disturbance','interpreter','latex','Location','best')
+legend('Nominal','$50\%$ nominal','$200\%$ nominal','Output disturbance','interpreter','latex','Location','best','FontSize',15)
 xlabel('Time [hr]','interpreter','latex')
 ylabel('$e_{track}$ [bar]','interpreter','latex')
 FlipMyFuckingLabel(gca)
@@ -42,7 +42,7 @@ plot(t,Out.refval,'--r')
 hold off
 xlabel('Time [hr]','Interpreter','latex')
 ylabel('$p_\tau$ [bar]','Interpreter','latex')
-legend('Nominal','$200\%$ nominal','$50\%$ nominal','Output disturbance','Pressure reference','interpreter','latex','Location','best')
+legend('Nominal','$50\%$ nominal','$200\%$ nominal','Output disturbance','interpreter','latex','Location','best','FontSize',15)
 ylh = get(gca,'ylabel');
 gyl = get(ylh);                                                         % Object Information
 ylp = get(ylh, 'Position');
@@ -66,7 +66,7 @@ plot(t,Out.uLQR(1,:),'-k')
 hold off
 xlabel('Time [hr]','Interpreter','latex')
 ylabel('$\Delta u$ [$\frac{m^3}{hr}$]','Interpreter','latex')
-legend('Nominal','$200\%$ nominal','$50\%$ nominal','Output disturbance','interpreter','latex','Location','best')
+legend('Nominal','$50\%$ nominal','$200\%$ nominal','Output disturbance','interpreter','latex','Location','best','FontSize',15)
 FlipMyFuckingLabel(gca)
 
 
@@ -79,7 +79,7 @@ plot(t(1:end-1),Out.u(1,:),'k')
 hold off
 xlabel('Time [hr]','Interpreter','latex')
 ylabel('$u$ [$\frac{m^3}{hr}$]','Interpreter','latex')
-legend('Nominal','$200\%$ nominal','$50\%$ nominal','Output disturbance','interpreter','latex','Location','best')
+legend('Nominal','$50\%$ nominal','$200\%$ nominal','Output disturbance','interpreter','latex','Location','best','FontSize',15)
 FlipMyFuckingLabel(gca)
 
 %
@@ -87,7 +87,7 @@ subplot(3,1,3)
 plot(t(1:end-1),Out.dc(1,1:end-1),'-b')
 xlabel('Time [hr]','Interpreter','latex')
 ylabel('$\delta$ [$\frac{m^3}{hr}$]','Interpreter','latex')
-legend('Disturbance','interpreter','latex','Location','best')
+legend('Disturbance','interpreter','latex','Location','best','FontSize',15)
 FlipMyFuckingLabel(gca)
 
 exportgraphics(figure(2),'LQRControls.pdf','BackgroundColor','none','ContentType','vector');

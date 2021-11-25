@@ -41,7 +41,7 @@ L = place(FastSys.A',FastSys.C',4*p);
 
 tau = 0.000096; % Absolute value of time constant
 
-ts = 25;
+ts = 60*5;
 fs = 1/ts;
 
 T = tau*ts; % Euler discretization of the time constant
@@ -49,7 +49,7 @@ T = tau*ts; % Euler discretization of the time constant
 A = 1;
 
 Bp = [T T];
-
+ 
 Bc = [T T];
 
 
@@ -120,9 +120,9 @@ T = ceil(length(t));
 %%
 
 for ii = 1:length(t)-1   
- 
-   dU(:,ii+1) = uLQR(:,ii)+dU(:,ii);  
-   
+    
+    dU(:,ii+1) = uLQR(:,ii)+dU(:,ii);  
+
    u(:,ii) = dU(:,ii+1)-pinv(dSys.B)*dSys.B*dc(:,ii); % Just cancel the fucking disturbance out 4Head
    
    for jj = 1:2
@@ -138,6 +138,7 @@ for ii = 1:length(t)-1
  
  
    x_real(:,ii+1) = dSys.A*x_real(:,ii)+dNom.B*u(:,ii)+dNom.B*dc(:,ii);
+%    y_real(ii+1) = dSys.C*(x_real(:,ii+1));
    y_real(ii+1) = dSys.C*(x_real(:,ii+1))-0.1;
    x(end,ii+1) = y_real(ii+1)-refval(ii);
    
@@ -205,3 +206,47 @@ plot(t(1:end-1),dc(2,1:end-1),'--m')
 hold off
 title('Full control input')
 xlabel('Time [hr]')
+
+%% Transfer function representations
+% 
+% close all
+% z = tf('z');
+% 
+% GLQR = K*inv(z*eye(2,2)-Av)*Bv;
+% LQRtf = (GLQR);
+% LQRtf.Ts = ts;
+% 
+% [num,den] = ss2tf(VSys.A,VSys.B,VSys.C,zeros(1,2),1);
+% G1 = tf(num,den,ts);
+% GOL = minreal(LQRtf*G1);
+% GCL = minreal(GOL/(1+GOL))
+% pzmap(GCL)
+
+% Using data from Sheth et al, compute an upper bound on the delay in each
+% scenario
+
+Loss2 = 0.08; % Worst-case loss, 2 km distance urban
+Loss8 = 0.15; % Worst-case loss, 8 km distance urban
+Loss20 = 0.6; % Worst-case loss, 20 km distance urban
+
+pdf2 = poisspdf(1,Loss2);
+pdf8 = poisspdf(1,Loss8);
+pdf20 = poisspdf(1,Loss20);
+
+syms n
+solve(0.01 == pdf2^n)
+solve(0.01 == pdf8^n)
+solve(0.01 == pdf20^n)
+
+tkalm = 10;
+
+w = 2*pi*1/(3600*24);
+Akalm = [0 0 0; 0 0 -w; 0 w 0];
+Akalm = blkdiag(Akalm,Akalm);
+Bkalm = ones(6,1);
+Ckalm = [1 1 0];
+Ckalm = blkdiag(Ckalm,Ckalm);
+
+dAkalm = eye(6,6)+Akalm*tkalm;
+
+KalmSys = ss(dAkalm,Bkalm,Ckalm,[],tkalm);
