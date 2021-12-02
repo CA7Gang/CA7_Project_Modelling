@@ -41,12 +41,12 @@ L = place(FastSys.A',FastSys.C',4*p);
 
 tau = 0.000096; % Absolute value of time constant
 
-ts = 60*5;
+ts = 3*60;
 fs = 1/ts;
 
 T = tau*ts; % Euler discretization of the time constant
 
-A = 1;
+A = 1.00;
 
 Bp = [T T];
  
@@ -80,7 +80,7 @@ VSys = ss(Av,Bv,Cv,[],ts);
 
 Q = Cv'*Cv; % Reference deviation cost
 % Q = 0.01*eye(2,2);
-R = eye(m,m); % Actuation cost
+R = 10*eye(m,m); % Actuation cost
 
 [K,P,e] = lqr(VSys,Q,R);
 
@@ -229,24 +229,24 @@ Loss2 = 0.08; % Worst-case loss, 2 km distance urban
 Loss8 = 0.15; % Worst-case loss, 8 km distance urban
 Loss20 = 0.6; % Worst-case loss, 20 km distance urban
 
-pdf2 = poisspdf(1,Loss2);
-pdf8 = poisspdf(1,Loss8);
-pdf20 = poisspdf(1,Loss20);
-
-syms n
-solve(0.01 == pdf2^n)
-solve(0.01 == pdf8^n)
-solve(0.01 == pdf20^n)
 
 tkalm = 10;
+n = 4;
 
-w = 2*pi*1/(3600*24);
-Akalm = [0 0 0; 0 0 -w; 0 w 0];
-Akalm = blkdiag(Akalm,Akalm);
-Bkalm = ones(6,1);
+w = 2*pi*1/(3600*12);
+Akalm = [0 -w; w 0];
+AkalmBlk = blkdiag(Akalm,2*Akalm);
+AkalmBlk = blkdiag(AkalmBlk,4*Akalm);
+AkalmBlk = blkdiag(AkalmBlk,8*Akalm);
+AkalmBlk = [zeros(1,2*n);AkalmBlk];
+AkalmBlk = [zeros(2*n+1,1) AkalmBlk];
+Bkalm = ones(n*2+1,1);
 Ckalm = [1 1 0];
-Ckalm = blkdiag(Ckalm,Ckalm);
 
-dAkalm = eye(6,6)+Akalm*tkalm;
+for ii = 1:n-1
+    Ckalm = [Ckalm [1 0]];
+end
+
+dAkalm = eye(2*n+1,2*n+1)+AkalmBlk*tkalm;
 
 KalmSys = ss(dAkalm,Bkalm,Ckalm,[],tkalm);
