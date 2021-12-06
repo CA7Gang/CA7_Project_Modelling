@@ -41,7 +41,7 @@ L = place(FastSys.A',FastSys.C',4*p);
 
 tau = 0.000096; % Absolute value of time constant
 
-ts = 60*5;
+ts = 5*60;
 fs = 1/ts;
 
 T = tau*ts; % Euler discretization of the time constant
@@ -79,7 +79,6 @@ VSys = ss(Av,Bv,Cv,[],ts);
 % Make an LQR gain matrix
 
 Q = Cv'*Cv; % Reference deviation cost
-% Q = 0.01*eye(2,2);
 R = eye(m,m); % Actuation cost
 
 [K,P,e] = lqr(VSys,Q,R);
@@ -229,14 +228,20 @@ Loss2 = 0.08; % Worst-case loss, 2 km distance urban
 Loss8 = 0.15; % Worst-case loss, 8 km distance urban
 Loss20 = 0.6; % Worst-case loss, 20 km distance urban
 
-pdf2 = poisspdf(1,Loss2);
-pdf8 = poisspdf(1,Loss8);
-pdf20 = poisspdf(1,Loss20);
+Acl = Av-Bv*K;
+S = kron(Acl,Acl); Shat = kron(Av,Av)-kron(Acl,Acl);
 
-syms n
-solve(0.01 == pdf2^n)
-solve(0.01 == pdf8^n)
-solve(0.01 == pdf20^n)
+V = [(kron(S,Shat)+kron(Shat,S))*inv(eye(16,16)-kron(S,S)) kron(Shat,Shat); inv(eye(16,16)-kron(S,S)) zeros(16,16)];
+
+mu = max(eig(V));
+
+PDM = 1/mu;
+
+Stabfun = @(PDP) max(abs(eig(kron(PDP*Av,Av)+kron((1-PDP)*Acl,Acl))));
+
+Stabfun(PDM)
+
+% Make Kalman filter
 
 tkalm = 10;
 
@@ -250,3 +255,4 @@ Ckalm = blkdiag(Ckalm,Ckalm);
 dAkalm = eye(6,6)+Akalm*tkalm;
 
 KalmSys = ss(dAkalm,Bkalm,Ckalm,[],tkalm);
+
