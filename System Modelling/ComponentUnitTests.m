@@ -202,6 +202,8 @@ C = [0 0 -1 -1 -1 -1];
 
 q_lin(:,1) = zeros(6,1);
 
+Ad = LinSys.A; Bd = LinSys.B;
+
 for ii = 1:length(t)
     [dqdt,pbar,pt_new] = fooSim.Model_TimeStep([w1(ii) w2(ii)],[OD1(ii) OD2(ii)],[qc(1) qc(2)],[df(1) df(2) df(3) df(4)],d_t,pt);
     qc(1) = qc(1)+dqdt(1)*ts;
@@ -223,7 +225,7 @@ for ii = 1:length(t)
     pressures(:,ii) = double(pbar);
     tankpres(ii) = pt;
     
-    q_lin(:,ii+1) = LinSys.A*(flowL-q0)+LinSys.B*([w1(ii);w2(ii)]-w0);
+    q_lin(:,ii+1) = Ad*(flowL-q0)+Bd*([w1(ii);w2(ii)]-w0);
     pt_lin(ii+1) = pt_lin(ii)-0.000096*q_lin(end,ii);
 end
 

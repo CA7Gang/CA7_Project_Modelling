@@ -18,6 +18,7 @@ classdef GraphModel
         H_bar % Reduced object incidence matrix (without reference vertex)
         H_bar_T % Reduced spanning tree incidence matrix
         H_bar_C % Reduced chord incidence matrix
+        Hinv_bar_T % Inverted spanning tree matrix (for efficiency)
         B % Loop matrix
         F_bar % Non-tank demand matrix
         G_bar % Tank demand matrix
@@ -50,6 +51,8 @@ classdef GraphModel
                 obj.H_bar = obj.H; 
                 obj.H_bar(vref,:) = [];
                 [obj.H_bar_T,obj.H_bar_C] = GetHPartitions(obj,obj.H_bar);
+
+                obj.Hinv_bar_T = inv(obj.H_bar_T);
                 
                 % Make the loop matrix
                 numC = numel(obj.chords); % Total number of chords 

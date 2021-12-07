@@ -38,6 +38,9 @@ classdef HydraulicNetworkSimulation
         PumpEdges % Variable containing indices of edges with pumps
         ValveEdges % Variable containing indices of edges with valves
         Inertias % Variable containing pipe inertias
+
+        PumpIndex % Indices of pumps (ordered) for use in simulation
+        ValveIndex % Indices of valves (ordered) for use in simulation
         
         Omega_T % Symbolic variable containing pressure functions of spanning tree
         Omega_C % Symbolic variable containing pressure functions of chords
@@ -89,6 +92,7 @@ classdef HydraulicNetworkSimulation
              for ii = 1:length(obj.r_C)
                     obj.r_all{obj.Graph.chords(ii)} = obj.r_C{ii};
              end
+
             
             % Map the symbolic variables onto the simulation object
             obj.q = q;
@@ -117,8 +121,34 @@ classdef HydraulicNetworkSimulation
             
             % Solve the static equation to find the steady-state chord flow equations
             obj.qC_eq = KCL(obj);
-              
+
+            for ii = 1:length(obj.PumpEdges)
+                obj.PumpIndex(ii) = find(obj.Graph.spanT == obj.PumpEdges(ii));
             end
+            
+            for ii = 1:length(obj.ValveEdges)
+                obj.ValveIndex(ii) = find(obj.Graph.spanT == obj.ValveEdges(ii));
+            end
+
+
+             % Create a function file to speed up simulation
+
+              syms q [numel(obj.Graph.edges) 1];
+              syms w [numel(obj.Graph.edges) 1];
+              syms OD [numel(obj.Graph.edges) 1];
+
+             ResFunIndices = [obj.Graph.chords obj.Graph.spanT];
+
+             for ii = 1:length(obj.Graph.edges)
+                    Omegas(ii) = obj.r_all{ResFunIndices(ii)}(q(ii),w(ii),OD(ii));
+             end
+
+             symOmegas = sym(Omegas);
+
+             matlabFunction(symOmegas,'File','fooFile','Vars',{q w OD});
+
+            end
+
             
             
             function [q_C,q_T,d_f,d_t,q_n,Q_n] = ParseGraphInfo(obj)
@@ -208,20 +238,20 @@ classdef HydraulicNetworkSimulation
                 spanT = obj.Graph.spanT;
                 chords = obj.Graph.chords;
                 
+%                 for ii = 1:length(obj.PumpEdges)
+%                     PumpIndex(ii) = find(spanT == obj.PumpEdges(ii));
+%                 end
+%                 
+%                 for ii = 1:length(obj.ValveEdges)
+%                     ValveIndex(ii) = find(spanT == obj.ValveEdges(ii));
+%                 end
+                
                 for ii = 1:length(obj.PumpEdges)
-                    PumpIndex(ii) = find(spanT == obj.PumpEdges(ii));
+                    w_vec(obj.PumpIndex(ii),ii) = 1;
                 end
                 
                 for ii = 1:length(obj.ValveEdges)
-                    ValveIndex(ii) = find(spanT == obj.ValveEdges(ii));
-                end
-                
-                for ii = 1:length(obj.PumpEdges)
-                    w_vec(PumpIndex(ii),ii) = 1;
-                end
-                
-                for ii = 1:length(obj.ValveEdges)
-                    o_vec(ValveIndex(ii),ii) = 1;
+                    o_vec(obj.ValveIndex(ii),ii) = 1;
                 end
                 
                 w_vec = [zeros(size(chords,2)); w_vec];
@@ -238,9 +268,10 @@ classdef HydraulicNetworkSimulation
                 omegaIndices = [chords spanT];
                 
                 
-                for ii = 1:length(obj.Graph.edges)
-                    Omegas(ii) = obj.r_all{omegaIndices(ii)}(q_vec(ii),w_vec(ii),o_vec(ii));
-                end
+%                 for ii = 1:length(obj.Graph.edges)
+%                     Omegas(ii) = obj.r_all{omegaIndices(ii)}(q_vec(ii),w_vec(ii),o_vec(ii));
+%                 end
+                Omegas = fooFile(q_vec,w_vec,o_vec);
                 
                 Omega_T = Omegas(size(chords,2)+1:end);
                
@@ -248,7 +279,7 @@ classdef HydraulicNetworkSimulation
     
                 
                 % Find the non-reference node pressures
-                pbar = inv(obj.Graph.H_bar_T)'*Omega_T' - obj.NodeHeights*(obj.rho*obj.g)/(10^5);
+                pbar = obj.Graph.Hinv_bar_T'*Omega_T' - obj.NodeHeights*(obj.rho*obj.g)/(10^5);
                 
                 % Get the change in flows
                 ResistancePart = -obj.Graph.Phi*Omegas';
@@ -259,7 +290,7 @@ classdef HydraulicNetworkSimulation
                 
 
                 % Find out where the tanks are
-                tankstartindex = numel(obj.Graph.chords)+numel(obj.Graph.consumers)+numel(obj.Graph.producers)+1;
+%                 tankstartindex = numel(obj.Graph.chords)+numel(obj.Graph.consumers)+numel(obj.Graph.producers)+1;
                 
                 % Get the new tank pressures
                 pt_new = pt_old - 0.000096*d_t; % Need to introduce code here to get the actual tank constant from the graph model

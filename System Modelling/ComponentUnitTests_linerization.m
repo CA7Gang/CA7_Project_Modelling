@@ -140,7 +140,7 @@ q0 = struct2array(eqpoint);
 pt = q0(4);
 q0 = [q0(5:6) q0(1:3) 0]';
 
-w = 66; w = 66;
+w = 100; w = 100;
 OD = 0.5; OD = 0.5;
 
 if a1(1) == 0
@@ -167,11 +167,14 @@ ts = 0.025;
 LinSys = ss(A,B,C,[]);
 LinSys = c2d(LinSys,ts,'Tustin');
 
+Ad = LinSys.A;
+Bd = LinSys.B;
+
 clear t
 
 f_p = 2/(24*10); % Assumed pump frequency
 
-t = 0:ts:(5*60)-ts; % Time vector corresponding to 24 hours
+t = 0:ts:(3600)-ts; % Time vector corresponding to 24 hours
 % w = 50*(1+square(12*pi*f_p*t,50))/2+50*(1+square(12*pi*f_p*t,100))/2; % Pump waveforms
 % OD =(1+sin(pi*f_p*t+t(end)/2))/2; % Valve waveforms
 
@@ -216,7 +219,7 @@ for ii = 1:length(t)
     pressures(:,ii) = double(pbar);
     tankpres(ii) = pt;
     
-    q_lin(:,ii+1) = LinSys.A*(flowL-q0)+LinSys.B*([w1(ii);w2(ii)]-w0);
+    q_lin(:,ii+1) = Ad*(flowL-q0)+Bd*([w1(ii);w2(ii)]-w0);
     pt_lin(ii+1) = pt_lin(ii)-0.000096*q_lin(end,ii);
     
 end
@@ -247,7 +250,7 @@ hold off
 legend('Chord 1','Chord 2','Linearised Chord 1','Linearised Chord 2','Interpreter','latex','Location','best')
 title('Chord Flows','interpreter','latex')
 xlabel('Time [min]','Interpreter','latex')
-xlim([0 5])
+xlim([0 t(end)])
 ylabel('$q$ [$\frac{m^3}{hr}$]','Interpreter','latex')
 FlipMyFuckingLabel(gca)
 
@@ -262,7 +265,7 @@ hold off
 legend('Pump 1','Pump 2','Linearised Pump 1', 'Linearised Pump 2','Interpreter','latex','Location','best')
 title('Pump Flows','interpreter','latex')
 xlabel('Time [min]','Interpreter','latex')
-xlim([0 5])
+xlim([0 t(end)])
 ylabel('$q$ [$\frac{m^3}{hr}$]','Interpreter','latex')
 FlipMyFuckingLabel(gca)
 
@@ -289,7 +292,7 @@ hold off
 legend('Tank Flow','Linearised Tank Flow','Interpreter','latex','Location','best')
 title('Tank Flows','interpreter','latex')
 xlabel('Time [min]','Interpreter','latex')
-xlim([0 5])
+xlim([0 t(end)])
 ylabel('$q$ [$\frac{m^3}{hr}$]','Interpreter','latex')
 FlipMyFuckingLabel(gca)
 
@@ -305,7 +308,7 @@ plot(t,pt_lin(1:end-1),'-.r')
 legend('Tank Pressure','Linearised Tank Pressure','Interpreter','latex','Location','best')
 title('Tank Pressure','Interpreter','Latex')
 xlabel('Time [min]','Interpreter','latex')
-xlim([0 5])
+xlim([0 t(end)])
 ylabel('$p_\tau$ [bar]','Interpreter','latex')
 FlipMyFuckingLabel(gca)
 
@@ -318,7 +321,7 @@ hold off
 title('Valves','Interpreter','Latex')
 legend('Valve 1','Valve 2','Interpreter','latex','Location','best')
 xlabel('Time [min]','Interpreter','latex')
-xlim([0 5])
+xlim([0 t(end)])
 ylabel('$OD$ [$\frac{OD}{OD_{max}}$]','Interpreter','latex')
 FlipMyFuckingLabel(gca)
 
@@ -330,7 +333,7 @@ hold off
 legend('Pump 1','Pump 2','Interpreter','latex','Location','best')
 title('Pumps','Interpreter','Latex')
 xlabel('Time [min]','Interpreter','latex')
-xlim([0 5])
+xlim([0 t(end)])
 ylabel('$\omega$ [PWM]','Interpreter','latex')
 FlipMyFuckingLabel(gca)
 
