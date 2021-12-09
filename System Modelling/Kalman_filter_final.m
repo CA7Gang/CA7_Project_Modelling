@@ -29,10 +29,10 @@ end
 
 
 %% leak
-m = 60000;              %sort of arbitrary position of leak
-leak_development = 10;        %30 minutes of development from leak happens to full leakage
+m = 95000;              %sort of arbitrary position of leak
+leak_development = 3600;        %30 minutes of development from leak happens to full leakage
 max_leak = 0.1;               %assuming nominal flow of 2, max leak is assumed to be 10% of nominal flow
-leak_increment = max_leak/10;      %how fast leak develops
+leak_increment = max_leak/leak_development;      %how fast leak develops
 
 leak(1:m) = 0;                  %gradual leak vector, begins at m, ramp increase over 2000 samples, then constant
 leak(m:m+leak_development) = 0:leak_increment:max_leak;
@@ -46,9 +46,14 @@ a_c3 = 0.5;
 a_c4 = 1;
 
 k_c = 1.05; % multiplier to the time-shift of the consumer pattern
-w_c = 1.12;
+% a_c1 = 2.2;   % changes the amplitude of the sineusiods with 20% 
+% a_c2 = 2.2;
+% a_c3 = 2.5;
+% a_c4 = 2;
+% 
+% k_c = 1.5; % multiplier to the time-shift of the consumer pattern
 
-noise_bit = 0; % 1 = noise on, 0 = noise off
+noise_bit = 1; % 1 = noise on, 0 = noise off
 
 %Identify DC + 4 harmonic components:
 K = 5.4274;
@@ -99,61 +104,80 @@ figure(1)
 plot(t,ConsumerPattern) % model vi går efter
 hold on
 plot(t,ConsumerPattern_clean) % clean consumer pattern
-title('Model of consumer pattern')
-xlabel('Time [sec]')
-ylabel('Consumption scaled to lab')
-legend('With uncertenties','clean')
+title('Model of consumer pattern','interpreter','latex')
+xlabel('Time [sec]','interpreter','latex')
+ylabel('Consumption scaled to lab','interpreter','latex')
+legend('Modified','Clean','interpreter','latex')
 xlim([0 3600*48]) % consumer for 2 dag
 hold off
 
+% saves the figure as a picture
+% f = fullfile('D:\GitRepose\AAU 7. semester\CA7_Writings\CA7_Writings_Worksheets\Pictures','Modified_vs_unmodified_consumer_pattern.pdf')
+% exportgraphics(figure(1), f)
 
 %%
 itteration = 1;
 % x(:,1) = [K/tot*max_flow_lab h1/tot*max_flow_lab*cos(ph1*2*pi*1/(T1)-pi/2) h1/tot*max_flow_lab*sin(ph1*2*pi*1/(T1)-pi/2) h2/tot*max_flow_lab*cos(ph2*2*pi*1/(T2)-pi/2) h2/tot*max_flow_lab*sin(ph2*2*pi*1/(T2)-pi/2) h3/tot*max_flow_lab*cos(ph3*2*pi*1/(T3)-pi/2) h3/tot*max_flow_lab*sin(ph3*2*pi*1/(T3)-pi/2) h4/tot*max_flow_lab*cos(ph4*2*pi*1/(T4)-pi/2) h4/tot*max_flow_lab*sin(ph4*2*pi*1/(T4)-pi/2)]';
-x(:,1) = [K/tot*max_flow_lab h1/tot*max_flow_lab*sin(ph1+theta1_clean) h1/tot*max_flow_lab*cos(ph1+theta1_clean) h2/tot*max_flow_lab*sin(ph2+theta2_clean) h2/tot*max_flow_lab*cos(ph2+theta2_clean) h3/tot*max_flow_lab*sin(ph3+theta3_clean) h3/tot*max_flow_lab*cos(ph3+theta3_clean) h4/tot*max_flow_lab*cos(ph4+theta4_clean) h4/tot*max_flow_lab*sin(ph4+theta4_clean)]';
-estimate(:,1) = Ckalm * x(:,1)+noise_bit*normrnd(0,0.01);    % start værdi for estimatet
+x(:,1) = [K/tot*max_flow_lab h1/tot*max_flow_lab*sin(ph1+theta1_clean) h1/tot*max_flow_lab*cos(ph1+theta1_clean) h2/tot*max_flow_lab*sin(ph2+theta2_clean) h2/tot*max_flow_lab*cos(ph2+theta2_clean) h3/tot*max_flow_lab*sin(ph3+theta3_clean) h3/tot*max_flow_lab*cos(ph3+theta3_clean) h4/tot*max_flow_lab*sin(ph4+theta4_clean) h4/tot*max_flow_lab*cos(ph4+theta4_clean)]';
+estimate(:,1) = Ckalm * x(:,1)+noise_bit*normrnd(0,0.005);    % start værdi for estimatet
 meassurement(1) = ConsumerPattern(1);               % start værdi for measurement
-% for jj = 1000:1000:2000
+%  for jj = 1000:1000:2000
 Q = eye(1)*0.1;                                     % Uncertainty on system model   
-R = eye(1)*70000;                                   % Uncertainty on observation
+R = eye(1)*100000;                                   % Uncertainty on observation
 % R = eye(1)*jj;
 kf = lqr(AkalmBlk',Ckalm',Q,R);                     % kalman gain
-kf = 0;
+
 for ii = 2:ts:length(t)
-     %meassurement(ii) =  ConsumerPattern(ii)+0.05*(rand(1,1))+leak(ii); % med leak
-     meassurement(ii) =  ConsumerPattern(ii)+noise_bit*normrnd(0,0.01); % uden leak
+     meassurement(ii) =  ConsumerPattern(ii)+noise_bit*normrnd(0,0.005)+leak(ii); % med leak
+%      meassurement(ii) =  ConsumerPattern(ii)+noise_bit*normrnd(0,0.01); % uden leak
 
     x(:,ii) = x(:,ii-1) + ts*AkalmBlk*x(:,ii-1);
     estimate(:,ii) = Ckalm * x(:,ii);
     
     x(:,ii) = x(:,ii) + kf'*(meassurement(:,ii)-estimate(:,ii));
     estimate(:,ii) = Ckalm * x(:,ii);
-    
-    if ii > 5000000
-        delta(ii) = estimate(ii) - (sum(meassurement(ii-5:ii))/5);
-    else
-        delta(ii) = abs((estimate(ii) - meassurement(ii)));
-    end
+
+    delta(ii) = abs((estimate(ii) - meassurement(ii)));
+    delta_squred(ii) = abs(meassurement(ii)-estimate(ii))^2;
+
 
 end
 
-% maxleakerror = max(delta(length(t)*0.6:length(t)*0.6+leak_development));        %search for max error in interval of leak development
-% maxmodelerror_beforeleak = max(delta(1:length(t)*0.6));                             %search for max error before leak
-% maxmodelerror_afterleak = max(delta((length(t)*0.61+leak_development):length(t)));        %search for max error after leak
+% maxleakerror = max(delta(m:m+leak_development));        %search for max error in interval of leak development
+% maxmodelerror_beforeleak = max(delta(2000:m));                             %search for max error before leak
+% maxmodelerror_afterleak = max(delta((m+500+leak_development):length(t)));        %search for max error after leak
 % maxmodelerror = max([maxmodelerror_beforeleak maxmodelerror_afterleak]);               %find max error of before and after search
 % maxilars(itteration) = maxleakerror-maxmodelerror;                                 %computes error difference
 % noise_value(itteration) = jj;                                                 %stores value of observation uncertainty at given error difference 
 % itteration = itteration + 1                                                  %increment itteration counter
 % end
 
-figure()
-plot(ConsumerPattern_clean, 'r')
+RMSE = sqrt(sum(delta_squred)/(length(t)))
+
+figure(2)
+plot(meassurement, 'r')
 hold on
 plot(estimate, 'b')
-legend('measurement','estimate')
+hold on
+plot(ConsumerPattern_clean,'LineWidth',2)
+title('Simulation of kalman filter over 2 days','interpreter','latex')
+xlabel('Time [sec]','interpreter','latex')
+ylabel('Consumption scaled to lab','interpreter','latex')
+legend('Measurement of consumption','Estimate of consumption','Clean','interpreter','latex')
 hold off
-% figure()
-% plot(delta)
+% saves the figure as a picture
+% f = fullfile('D:\GitRepose\AAU 7. semester\CA7_Writings\CA7_Writings_Worksheets\Pictures','Simulation_kalman_filter_leak_Q01_R1000000.pdf')
+% exportgraphics(figure(2), f)
+
+
+figure(3)
+plot(delta)
+title('Residual','interpreter','latex')
+xlabel('Time [sec]','interpreter','latex')
+ylabel('Difference','interpreter','latex')
+% saves the figure as a picture
+% f = fullfile('D:\GitRepose\AAU 7. semester\CA7_Writings\CA7_Writings_Worksheets\Pictures','Residual_Q01_R1000000.pdf')
+% exportgraphics(figure(3), f)
+
 % figure()
 % plot(maxilars)
-
