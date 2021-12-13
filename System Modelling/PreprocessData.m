@@ -27,9 +27,7 @@ function ProcessedData = PreprocessData(data,TestLen,varargin)
     end
     if nargin == 2
         for ii = 1:numel(StructNames)
-            for jj = 1:size(ProcessedData.(StructNames{ii}),2)
-            ProcessedData.(StructNames{ii})(1:TestLen,jj) = ProcessedData.(StructNames{ii})(1:TestLen,jj);
-            end
+                ProcessedData.(StructNames{ii}) = ProcessedData.(StructNames{ii})(1:TestLen,:);
         end
     end
 end

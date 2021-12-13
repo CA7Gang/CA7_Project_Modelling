@@ -3,8 +3,8 @@
 clear all
 close all
 
-load('FullRun_Final.mat');
-% load('CascadeFullRun_1.mat')
+% load('FullRun_Final.mat');
+load('CascadeFullRun_1.mat')
 % load('Run_NoSync.mat')
 % data = data{2};
 Data = PreprocessData(data,12*3600); % Black magic that extracts named signals and interpolates any that need it.
@@ -115,7 +115,7 @@ FlipMyFuckingLabel(gca)
 
 %% Export Figures
 
-exportgraphics(figure(1),'LabResultPics/OuterLoop.pdf','BackgroundColor','none','ContentType','vector');
-exportgraphics(figure(2),'LabResultPics/InnerLoop.pdf','BackgroundColor','none','ContentType','vector');
-exportgraphics(figure(3),'LabResultPics/DisturbanceEstimation.pdf','BackgroundColor','none','ContentType','vector');
-exportgraphics(figure(4),'LabResultPics/LeakageDetection.pdf','BackgroundColor','none','ContentType','vector');
+exportgraphics(figure(1),'LabResultPics/OuterLoopBad.pdf','BackgroundColor','none','ContentType','vector');
+exportgraphics(figure(2),'LabResultPics/InnerLoopBad.pdf','BackgroundColor','none','ContentType','vector');
+exportgraphics(figure(3),'LabResultPics/DisturbanceEstimationBad.pdf','BackgroundColor','none','ContentType','vector');
+exportgraphics(figure(4),'LabResultPics/LeakageDetectionBad.pdf','BackgroundColor','none','ContentType','vector');
