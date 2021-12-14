@@ -2,9 +2,9 @@
 
 clear; close all;
 
-load('FullRun_Final.mat');
+% load('FullRun_Final.mat');
 % load('CascadeFullRun_1.mat')
-% load('/Users/martin/Documents/Git/Repos/CA7_Project/CA7_Project_Modelling/CascadeFullRun_1.mat')
+load('/Users/martin/Documents/Git/Repos/CA7_Project/CA7_Project_Modelling/CascadeFullRun_1.mat')
 % load('Run_NoSync.mat')
 % data = data{2};
 Data = PreprocessData(data,12*3600); % Black magic that extracts named signals and interpolates any that need it.
@@ -167,7 +167,7 @@ legend('Tank Level','Tank Level Reference','FontSize',14)
 title('Tank Level','interpreter','latex')
 xlabel('Time [min]','Interpreter','latex')
 xlim([0 t(end)])
-ylim([350 450])
+% ylim([350 450])
 ylabel('$h_\tau$ [mm]','Interpreter','latex')
 FlipMyFuckingLabel(gca)
 ax = gca;
@@ -228,7 +228,8 @@ legend('"Disturbance" Measurement','Kalman Filter','interpreter','latex','Locati
 title('Disturbance Estimation','interpreter','latex')
 xlabel('Time [min]','Interpreter','latex')
 xlim([0 t(end)])
-ylim([0 0.7])
+% ylim([0 0.7])
+ylim([0 0.8])
 ylabel('$q$ [$\frac{m^3}{hr}$]','Interpreter','latex')
 FlipMyFuckingLabel(gca)
 ax1 = gca;
@@ -318,7 +319,9 @@ linkaxes([ax1 ax2], 'x')
 
 % Just change savepath to whichever fits you!
 savepath = '/Users/martin/Documents/Git/Repos/CA7_Writings/CA7_Writings_SciPaper/Poster/Figures'
-filename = ["OuterLoop_Poster.pdf"; "InnerLoop_Poster.pdf" ;"DisturbanceEstimation_Poster.pdf"; "LeakageDetection_Poster.pdf"; "DisturbanceEstimationZoom_Poster.pdf"]
+% filename = ["OuterLoop_Poster.pdf"; "InnerLoop_Poster.pdf" ;"DisturbanceEstimation_Poster.pdf"; "LeakageDetection_Poster.pdf"; "DisturbanceEstimationZoom_Poster.pdf"]
+filename = ["OuterLoopBad_Poster.pdf"; "InnerLoopBad_Poster.pdf" ;"DisturbanceEstimationBad_Poster.pdf"; "LeakageDetectionBad_Poster.pdf"; "DisturbanceEstimationBadZoom_Poster.pdf"]
+
 for i=1:length(figures)
     f = fullfile(savepath, append(filename(i)))
 
