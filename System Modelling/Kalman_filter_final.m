@@ -30,11 +30,11 @@ end
 
 %% leak
 m = 95000;              %sort of arbitrary position of leak
-leak_development = 3600;        %30 minutes of development from leak happens to full leakage
-max_leak = 0.1;               %assuming nominal flow of 2, max leak is assumed to be 10% of nominal flow
+leak_development = 4*3600;        %60 minutes of development from leak happens to full leakage
+max_leak = 0.1;               %assuming nominal flow of 0.3, max leak is assumed to be 33% of nominal flow
 leak_increment = max_leak/leak_development;      %how fast leak develops
 
-leak(1:m) = 0;                  %gradual leak vector, begins at m, ramp increase over 2000 samples, then constant
+leak(1:m) = 0;                  %gradual leak vector, begins at m, ramp increase over 3600 (1 hr.) samples, then constant
 leak(m:m+leak_development) = 0:leak_increment:max_leak;
 leak(m+leak_development:length(t)) = max_leak;
 %% Simulation
@@ -117,6 +117,8 @@ hold off
 
 %%
 itteration = 1;
+threshold_reach = 0;
+delta_sum(1:length(t)) = 0;
 % x(:,1) = [K/tot*max_flow_lab h1/tot*max_flow_lab*cos(ph1*2*pi*1/(T1)-pi/2) h1/tot*max_flow_lab*sin(ph1*2*pi*1/(T1)-pi/2) h2/tot*max_flow_lab*cos(ph2*2*pi*1/(T2)-pi/2) h2/tot*max_flow_lab*sin(ph2*2*pi*1/(T2)-pi/2) h3/tot*max_flow_lab*cos(ph3*2*pi*1/(T3)-pi/2) h3/tot*max_flow_lab*sin(ph3*2*pi*1/(T3)-pi/2) h4/tot*max_flow_lab*cos(ph4*2*pi*1/(T4)-pi/2) h4/tot*max_flow_lab*sin(ph4*2*pi*1/(T4)-pi/2)]';
 x(:,1) = [K/tot*max_flow_lab h1/tot*max_flow_lab*sin(ph1+theta1_clean) h1/tot*max_flow_lab*cos(ph1+theta1_clean) h2/tot*max_flow_lab*sin(ph2+theta2_clean) h2/tot*max_flow_lab*cos(ph2+theta2_clean) h3/tot*max_flow_lab*sin(ph3+theta3_clean) h3/tot*max_flow_lab*cos(ph3+theta3_clean) h4/tot*max_flow_lab*sin(ph4+theta4_clean) h4/tot*max_flow_lab*cos(ph4+theta4_clean)]';
 estimate(:,1) = Ckalm * x(:,1)+noise_bit*normrnd(0,0.005);    % start værdi for estimatet
@@ -139,10 +141,25 @@ for ii = 2:ts:length(t)
 
     delta(ii) = abs((estimate(ii) - meassurement(ii)));
     delta_squred(ii) = abs(meassurement(ii)-estimate(ii))^2;
-
-
+    
+    
+    if ii == 3600*6
+        delta_sum(ii) = sum(delta(1:3600*6));
+    end
+    if ii > 3600*6
+        delta_sum(ii) = delta_sum(ii-1) - delta(ii-3599*6)+delta(ii);
+    end
+    
 end
 
+% for ii = m:1:length(t)
+% if delta_sum(ii) > max(delta_sum(3600*3:m))+((max(delta_sum(3600*3:m))-min(delta_sum(3600*3:m)))/100)*20
+%     if threshold_reach == 0
+%     threshold_reach = ii
+%     end
+% end
+% end
+%%
 % maxleakerror = max(delta(m:m+leak_development));        %search for max error in interval of leak development
 % maxmodelerror_beforeleak = max(delta(2000:m));                             %search for max error before leak
 % maxmodelerror_afterleak = max(delta((m+500+leak_development):length(t)));        %search for max error after leak
@@ -152,32 +169,47 @@ end
 % itteration = itteration + 1                                                  %increment itteration counter
 % end
 
-RMSE = sqrt(sum(delta_squred)/(length(t)))
+
+
+RMSE = sqrt(sum(delta_squred)/(length(t)));
 
 figure(2)
+subplot(2,1,1)
 plot(meassurement, 'r')
 hold on
 plot(estimate, 'b')
 hold on
 plot(ConsumerPattern_clean,'LineWidth',2)
-title('Simulation of kalman filter over 2 days','interpreter','latex')
-xlabel('Time [sec]','interpreter','latex')
-ylabel('Consumption scaled to lab','interpreter','latex')
-legend('Measurement of consumption','Estimate of consumption','Clean','interpreter','latex')
+title('Simulation of kalman filter over two days','FontSize',18,'interpreter','latex')
+xlabel('Time [sec]','FontSize',18,'interpreter','latex')
+ylabel('Consumption scaled to lab','FontSize',18,'interpreter','latex')
+xline(m,'r',{'Leak begins'},'FontSize',18,'interpreter','latex')
+legend('Measurement of consumption','Estimate of consumption','Unaltered consumer model','interpreter','latex')
+xlim([0 3600*48]) % consumer for 2 dag
 hold off
-% saves the figure as a picture
-% f = fullfile('D:\GitRepose\AAU 7. semester\CA7_Writings\CA7_Writings_Worksheets\Pictures','Simulation_kalman_filter_leak_Q01_R1000000.pdf')
-% exportgraphics(figure(2), f)
 
-
-figure(3)
+subplot(2,1,2)
 plot(delta)
-title('Residual','interpreter','latex')
-xlabel('Time [sec]','interpreter','latex')
-ylabel('Difference','interpreter','latex')
+title('Residual','FontSize',18,'interpreter','latex')
+xlabel('Time [sec]','FontSize',18,'interpreter','latex')
+ylabel('Difference','FontSize',18,'interpreter','latex')
+xline(m,'r',{'Leak begins'},'FontSize',18,'interpreter','latex')
+xlim([0 3600*48]) % consumer for 2 dag
 % saves the figure as a picture
-% f = fullfile('D:\GitRepose\AAU 7. semester\CA7_Writings\CA7_Writings_Worksheets\Pictures','Residual_Q01_R1000000.pdf')
-% exportgraphics(figure(3), f)
+% f = fullfile('D:\GitRepose\AAU 7. semester\CA7_Writings\CA7_Writings_Worksheets\Pictures','Kalman_and_Residual_Q01_R100000_4hr.pdf')
+% exportgraphics(figure(2), f)
 
 % figure()
 % plot(maxilars)
+
+figure(3)
+plot(delta_sum)
+title('Moving average residual','FontSize',18,'interpreter','latex')
+xlabel('Time [sec]','FontSize',18,'interpreter','latex')
+ylabel('Accumulated difference','FontSize',18,'interpreter','latex')
+xline(m,'r',{'Leak begins'},'FontSize',18,'interpreter','latex')
+ylim([54/2 62/2])
+xlim([0 3600*48]) % consumer for 2 dag
+% saves the figure as a picture
+% f = fullfile('D:\GitRepose\AAU 7. semester\CA7_Writings\CA7_Writings_Worksheets\Pictures','MA_Residual_Q01_R100000_AVRG4hr.pdf')
+% exportgraphics(figure(3), f)
