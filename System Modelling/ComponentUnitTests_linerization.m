@@ -172,11 +172,12 @@ Bd = LinSys.B;
 
 clear t
 
-f_p = 2/(24*10); % Assumed pump frequency
+f_p = 1/(3600); % Assumed pump frequency
 
 t = 0:ts:(3600)-ts; % Time vector corresponding to 24 hours
-% w = 50*(1+square(12*pi*f_p*t,50))/2+50*(1+square(12*pi*f_p*t,100))/2; % Pump waveforms
-% OD =(1+sin(pi*f_p*t+t(end)/2))/2; % Valve waveforms
+% w = (50*sin(2*pi*f_p*t)); % Pump waveforms
+% OD =(0.8+sin(pi*f_p*t+t(end)/2))/2; % Valve waveforms
+% OD = OD+0.2;
 
 
 clear flow tankpres df d_t pt w1 w2 OD1 OD2 pressures q_lin pt_lin flowchange linpump

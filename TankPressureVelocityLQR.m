@@ -41,7 +41,7 @@ L = place(FastSys.A',FastSys.C',4*p);
 
 tau = 0.000096; % Absolute value of time constant
 
-ts = 5*60;
+ts = 3*60;
 fs = 1/ts;
 
 T = tau*ts; % Euler discretization of the time constant
@@ -228,7 +228,9 @@ Loss2 = 0.08; % Worst-case loss, 2 km distance urban
 Loss8 = 0.15; % Worst-case loss, 8 km distance urban
 Loss20 = 0.6; % Worst-case loss, 20 km distance urban
 
+
 Acl = Av-Bv*K;
+Acl = Av;
 S = kron(Acl,Acl); Shat = kron(Av,Av)-kron(Acl,Acl);
 
 V = [(kron(S,Shat)+kron(Shat,S))*inv(eye(16,16)-kron(S,S)) kron(Shat,Shat); inv(eye(16,16)-kron(S,S)) zeros(16,16)];
@@ -239,11 +241,13 @@ PDM = 1/mu;
 
 Stabfun = @(PDP) max(abs(eig(kron(PDP*Av,Av)+kron((1-PDP)*Acl,Acl))));
 
+sprintf('Upper bound on packet loss is %f',PDM)
+
 Stabfun(PDM)
 
-% Make Kalman filter
+%% Make Kalman filter
 
-tkalm = 10;
+tkalm = 1;
 
 w = 2*pi*1/(3600*24);
 Akalm = [0 0 0; 0 0 -w; 0 w 0];
@@ -255,4 +259,12 @@ Ckalm = blkdiag(Ckalm,Ckalm);
 dAkalm = eye(6,6)+Akalm*tkalm;
 
 KalmSys = ss(dAkalm,Bkalm,Ckalm,[],tkalm);
+
+Qk = 0.01; Rk = 100000;
+
+[kalmf,L,P] = kalman(KalmSys,Qk,Rk);
+
+kalmEig = eig(KalmSys.A-L*KalmSys.C);
+
+disp(kalmEig)
 
